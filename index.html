@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>トーナメント表メーカー</title>
   <link rel="stylesheet" href="css/style.css">
+  <style id="pageStyle"></style>
 </head>
 <body>
   <header class="app-header no-print">
@@ -95,7 +96,15 @@
 
     <section class="panel" id="printPanel">
       <h2>印刷</h2>
-      <p class="help">A4横で印刷します。トーナメント表の各試合には、試合進行表の審判・時間・コートが表示されます。</p>
+      <p class="help">トーナメント表と詳しい試合進行表はA4横、番号の表はA4縦で印刷します。トーナメント表の各試合には、試合進行表の審判・時間・コートが表示されます。</p>
+      <div class="schedule-settings">
+        <label>試合進行表の形式
+          <select id="printStyleInput">
+            <option value="compact">番号の表（A4縦）</option>
+            <option value="detail">詳しい表（A4横）</option>
+          </select>
+        </label>
+      </div>
       <label class="check"><input type="checkbox" id="blankInfoInput"> トーナメント表の審判・時間・コートを空欄にして印刷する（手書き用）</label>
       <div class="actions">
         <button type="button" data-print="division" id="printDivisionBtn">この部門のトーナメント表を印刷</button>

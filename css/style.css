@@ -139,6 +139,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .schedule-settings input[type="number"] { width: 80px; }
 .schedule-settings select { font: inherit; padding: 5px 6px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
 .with-unit { color: var(--ink); }
+#printPanel .schedule-settings { margin-bottom: 4px; }
 .check { display: flex; align-items: center; gap: 6px; font-size: 14px; }
 
 #scheduleArea { margin-top: 12px; overflow-x: auto; }
@@ -193,4 +194,18 @@ table.grid th { background: #eef0ec; font-weight: bold; white-space: nowrap; }
   .g-order { width: 3.5em; }
   .g-time { width: 4em; }
   .g-cell .match { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* 番号の表（A4縦に、コート4面の表を上下2段。1つの表は15行まで） */
+  .print-compact .print-title { font-size: 12pt; margin: 0 0 4mm; }
+  table.compact { table-layout: fixed; border-collapse: collapse; font-size: 8.5pt; line-height: 1.15; margin-bottom: 6mm; }
+  table.compact:last-child { margin-bottom: 0; }
+  table.compact tr { break-inside: avoid; }
+  table.compact th, table.compact td { border: 0.5pt solid #000; padding: 0.3mm 1mm; text-align: center; vertical-align: middle; overflow: hidden; }
+  table.compact thead th { font-weight: bold; height: 5mm; padding: 0; }
+  table.compact tbody tr { height: 7.2mm; }
+  table.compact col.c-order { width: 8mm; }
+  table.compact col.c-match { width: 21mm; }
+  table.compact col.c-ump { width: 25.4mm; }
+  table.compact td.c-ump { font-size: 7pt; line-height: 1.1; padding-left: 0.5mm; padding-right: 0.5mm; }
+  table.compact td.div-change { border-top: 2.5px solid #000; }
 }

@@ -686,7 +686,7 @@
   // 対戦欄：本戦は山に入っているチームの最初と最後の番号（例「101 − 105」）。
   //   決勝・3位決定戦・5位決定戦・7位決定戦は部門名と試合名の2行。5〜8位決定戦は「101-103 敗者」「104-105 敗者」の2行。
   // 審判欄：試合進行表の審判の文字（scheduleEvent が作る形）を番号で書き直す。
-  //   同じコートの1つ前の試合の敗者は「敗者」、決勝・3位決定戦の勝者・敗者は「優勝者」「準優勝」「3位」「4位」。
+  //   同じコートの1つ前の試合の敗者は「敗者」、決勝・3位決定戦の勝者・敗者は「優勝者」「準優勝」「3位」「4位」（部門名は付けない）。
   //   手で書き換えるなどして読み取れない文字は、そのまま表示する。
   // plan: 試合進行表 { matches: { key: { slot, court, no, umpire } } }
   // 返り値: { 試合のkey: { divId, match: [行…], umpire: [行…] } }
@@ -699,7 +699,7 @@
       var r = plan.matches[it.key];
       if (r) byNo[r.no] = it;
     });
-    // コートごとの1つ前の試合
+    // コートごとの1つ前の時間枠の試合（空きの行をはさんだ試合は数えない）
     var prevOnCourt = {};
     var byCourt = {};
     Object.keys(plan.matches).forEach(function (k) {
@@ -709,7 +709,9 @@
     });
     Object.keys(byCourt).forEach(function (c) {
       var ks = byCourt[c].sort(function (a, b) { return plan.matches[a].slot - plan.matches[b].slot; });
-      for (var i = 1; i < ks.length; i++) prevOnCourt[ks[i]] = ks[i - 1];
+      for (var i = 1; i < ks.length; i++) {
+        if (plan.matches[ks[i - 1]].slot === plan.matches[ks[i]].slot - 1) prevOnCourt[ks[i]] = ks[i - 1];
+      }
     });
 
     function divName(it) { return it.div.name.trim() || '名前なし'; }
@@ -720,16 +722,16 @@
       return Math.min.apply(null, ns) + '-' + Math.max.apply(null, ns);
     }
     function sideMatch(it, s) { return byKey[matchKey(it.div.id, s.matchId)]; }
-    // 試合を指す短い名前（審判欄で使う）
+    // 試合を指す短い名前（審判欄で使う）。審判は同じ部門から出すので部門名は付けない。
     function ref(it) {
       if (isPlain(it)) return range(it);
-      if (isFinal(it)) return divName(it) + ' 決勝';
-      return divName(it) + ' ' + (COMPACT_STAGE[it.m.stage] || STAGE_NAMES[it.m.stage]);
+      if (isFinal(it)) return '決勝';
+      return COMPACT_STAGE[it.m.stage] || STAGE_NAMES[it.m.stage];
     }
     // その試合の勝者（W）・敗者（L）
     function resultLabel(it, kind) {
-      if (isFinal(it)) return divName(it) + (kind === 'W' ? ' 優勝者' : ' 準優勝');
-      if (it.m.stage === 'third') return divName(it) + (kind === 'W' ? ' 3位' : ' 4位');
+      if (isFinal(it)) return kind === 'W' ? '優勝者' : '準優勝';
+      if (it.m.stage === 'third') return kind === 'W' ? '3位' : '4位';
       return ref(it) + (kind === 'W' ? ' 勝者' : ' 敗者');
     }
 
