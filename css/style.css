@@ -108,6 +108,8 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .bracket-svg .final { fill: #111; }
 .bracket-svg .info-label { fill: #777; }
 .bracket-svg .info-val { fill: #111; }
+.bracket-svg .ref-box { fill: #f7f7f5; stroke: #888; stroke-width: 1; stroke-dasharray: 3 2; }
+.bracket-svg .ref-label { fill: #444; }
 @media screen {
   .bracket-svg .entry { cursor: pointer; }
   .bracket-svg .entry:hover rect { fill: #eef5f0; }
@@ -115,43 +117,63 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   .bracket-svg .entry.clash rect { stroke: #c0392b; stroke-width: 2; }
 }
 
+/* タブ */
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; justify-content: space-between; margin-bottom: 12px; }
+.tab-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.tab { border-radius: 6px 6px 0 0; border-bottom-width: 3px; }
+.tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: bold; }
+.tab.unnamed { color: var(--muted); }
+.tab.tab-schedule { margin-left: 8px; }
+.tab-edit { font-size: 13px; padding: 5px 10px; }
+.division-name { margin-left: 8px; font-size: 14px; color: var(--muted); font-weight: normal; }
+.division-name::before { content: '（'; }
+.division-name::after { content: '）'; }
+.division-row { display: grid; grid-template-columns: minmax(0, 24em) 4em; gap: 6px; margin-bottom: 6px; }
+.division-row input { width: 100%; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
 /* 試合進行表 */
 .schedule-settings { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; }
 .schedule-settings label { display: flex; flex-direction: column; font-size: 14px; color: var(--muted); }
 .schedule-settings label.check { flex-direction: row; align-items: center; gap: 6px; color: var(--ink); }
 .schedule-settings input[type="number"] { width: 80px; }
+.schedule-settings select { font: inherit; padding: 5px 6px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
 .with-unit { color: var(--ink); }
+.check { display: flex; align-items: center; gap: 6px; font-size: 14px; }
 
 #scheduleArea { margin-top: 12px; overflow-x: auto; }
-table.schedule { width: 100%; border-collapse: collapse; font-size: 14px; }
-table.schedule th, table.schedule td { border: 1px solid #999; padding: 4px 6px; vertical-align: middle; }
-table.schedule th { background: #eef0ec; font-weight: bold; white-space: nowrap; }
-table.schedule td input {
-  width: 100%;
-  font: inherit;
-  border: 1px solid transparent;
-  background: transparent;
-  padding: 2px 4px;
-  border-radius: 4px;
+table.grid { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+table.grid th, table.grid td { border: 1px solid #999; padding: 4px; vertical-align: top; }
+table.grid th { background: #eef0ec; font-weight: bold; white-space: nowrap; }
+.g-order { width: 3.5em; text-align: center; white-space: nowrap; }
+.g-time { width: 4.5em; }
+.g-time input { width: 4em; font: inherit; border: 1px solid transparent; background: transparent; padding: 2px; border-radius: 4px; }
+.g-cell { min-width: 150px; width: 160px; }
+.g-cell .match { border-left: 4px solid var(--accent); padding-left: 6px; }
+.cell-head { display: flex; flex-wrap: wrap; gap: 0 6px; font-size: 12px; color: var(--muted); }
+.cell-head .div-name { font-weight: bold; color: var(--ink); }
+.cell-head .no { margin-left: auto; }
+.g-cell .side { font-weight: bold; line-height: 1.35; }
+.g-cell .side.ref { font-weight: normal; color: #444; }
+.g-cell .club { font-size: 11px; color: var(--muted); font-weight: normal; margin-left: 4px; }
+.g-cell .club::before { content: '（'; }
+.g-cell .club::after { content: '）'; }
+.g-cell .vs { font-size: 11px; color: var(--muted); line-height: 1.2; }
+.g-cell .ump { display: flex; gap: 4px; align-items: baseline; margin-top: 2px; font-size: 12px; }
+.g-cell .ump-label { color: var(--muted); white-space: nowrap; }
+.g-cell .ump textarea { flex: 1; min-width: 0; font: inherit; line-height: 1.3; border: 1px solid transparent; background: transparent; padding: 1px 3px; border-radius: 4px; resize: none; }
+.g-time input:hover, .g-time input:focus, .g-cell .ump textarea:hover, .g-cell .ump textarea:focus { border-color: var(--line); background: #fff; }
+@media screen {
+  .g-cell[data-cell] { cursor: pointer; }
+  .g-cell[data-cell]:hover { background: #eef5f0; }
+  .g-cell.selected { background: #d4ead9; outline: 2.5px solid var(--accent); outline-offset: -2px; }
 }
-table.schedule td input:hover, table.schedule td input:focus { border-color: var(--line); background: #fff; }
-.c-no, .c-round { white-space: nowrap; }
-.c-time { width: 80px; }
-.c-court { width: 70px; }
-.c-ump { width: 22%; }
-.c-score { width: 12%; }
-.c-vs .pair { font-weight: bold; }
-.c-vs .pair.winner { font-weight: normal; color: #444; }
-.c-vs .club { font-size: 12px; color: var(--muted); margin-left: 4px; }
-.c-vs .club::before { content: '（'; }
-.c-vs .club::after { content: '）'; }
-.c-vs .vs { margin: 0 8px; color: var(--muted); }
 
-.print-only { display: none; }
+.print-area { display: none; }
 
 @media (max-width: 600px) {
   .app-header h1 { font-size: 17px; }
-  table.schedule { min-width: 640px; }
+  .tab.tab-schedule { margin-left: 0; }
 }
 
 /* 印刷 */
@@ -159,17 +181,16 @@ table.schedule td input:hover, table.schedule td input:focus { border-color: var
 @media print {
   body { background: #fff; font-size: 11pt; }
   .no-print, .app-header { display: none !important; }
-  main { max-width: none; padding: 0; }
-  .panel { border: none; padding: 0; margin: 0; }
-  .print-only { display: block; font-size: 15pt; margin: 0 0 6px; }
-  #bracketArea, #scheduleArea { overflow: visible; margin: 0; }
-  .bracket-svg { min-width: 0; max-height: 190mm; }
-  table.schedule { font-size: 10pt; }
-  table.schedule tr { break-inside: avoid; }
-  table.schedule thead { display: table-header-group; }
-  table.schedule td input { border: none; padding: 0; color: #000; }
-
-  body[data-print="bracket"] #schedulePanel { display: none; }
-  body[data-print="schedule"] #bracketPanel { display: none; }
-  #schedulePanel { break-before: page; }
+  .print-area { display: block; }
+  .print-page { break-after: page; }
+  .print-page:last-child { break-after: auto; }
+  .print-bracket .bracket-svg { min-width: 0; max-height: 190mm; }
+  .print-title { font-size: 15pt; margin: 0 0 6px; }
+  table.grid { width: calc(100% - 2px); min-width: 0; font-size: 9.5pt; table-layout: fixed; }
+  table.grid tr { break-inside: avoid; }
+  table.grid thead { display: table-header-group; }
+  .g-cell { width: auto; min-width: 0; }
+  .g-order { width: 3.5em; }
+  .g-time { width: 4em; }
+  .g-cell .match { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

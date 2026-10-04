@@ -210,12 +210,13 @@
     return true;
   }
 
+
   // ---------- 試合一覧 ----------
 
-  // 試合番号は回戦順・山の上から順。order（試合idの配列）を渡すとその順に番号を振る。
+  // 本戦の試合。試合番号（no）は回戦順・山の上から順の仮の番号（試合進行表を作るまで使う）。
   // BYE による不戦勝は試合に数えない。
   // 返り値の nodes[r][k] は r 回戦（1始まり）の k 番目の山の結節点。
-  function buildMatches(bracket, order) {
+  function buildMatches(bracket) {
     var size = bracket.size;
     var rounds = Math.log2(size);
     var nodes = [null];
@@ -241,20 +242,48 @@
           });
           entriesBelow = ca.entriesBelow.concat(cb.entriesBelow);
         }
-        var m = { kind: 'match', id: 'r' + r + 'm' + k, no: ++no, round: r, index: k, sides: sides, entriesBelow: entriesBelow };
+        var m = { kind: 'match', id: 'r' + r + 'm' + k, no: ++no, round: r, stage: 'main', index: k, sides: sides, entriesBelow: entriesBelow, after: [] };
         nodes[r][k] = m;
         matches.push(m);
       }
     }
-    if (order && order.length === matches.length) {
-      var pos = {};
-      order.forEach(function (id, i) { pos[id] = i + 1; });
-      if (matches.every(function (m) { return pos[m.id]; })) {
-        matches.forEach(function (m) { m.no = pos[m.id]; });
-        matches.sort(function (a, b) { return a.no - b.no; });
-      }
-    }
     return { rounds: rounds, nodes: nodes, matches: matches };
+  }
+
+  // 本戦に、3位決定戦と5〜8位決定戦を加えた部門の全試合（前の試合が先に並ぶ）。
+  // 3位決定戦は準決勝が2試合とも行われるとき、5〜8位決定戦は準々決勝が4試合とも行われるときだけ作る。
+  // 5〜8位決定戦（2試合）は決勝と3位決定戦のあと（after）に行い、その勝者で5位決定戦、敗者で7位決定戦をする。
+  // sides の type は entry（チーム）・winner（勝者）・loser（敗者）。
+  function divisionMatches(bracket) {
+    var built = buildMatches(bracket);
+    var R = built.rounds;
+    var matches = built.matches;
+    var no = matches.length;
+    function isMatch(n) { return n && n.kind === 'match'; }
+    function winner(m) { return { type: 'winner', matchId: m.id }; }
+    function loser(m) { return { type: 'loser', matchId: m.id }; }
+    function add(id, stage, round, sides, below, after) {
+      var m = { kind: 'match', id: id, no: ++no, round: round, stage: stage, sides: sides, entriesBelow: below, after: after || [] };
+      matches.push(m);
+      return m;
+    }
+
+    var third = null;
+    if (R >= 2 && isMatch(built.nodes[R - 1][0]) && isMatch(built.nodes[R - 1][1])) {
+      var s0 = built.nodes[R - 1][0], s1 = built.nodes[R - 1][1];
+      third = add('third', 'third', R, [loser(s0), loser(s1)], s0.entriesBelow.concat(s1.entriesBelow));
+    }
+    // 準々決勝が4試合とも行われるなら、準決勝も2試合とも行われるので third は必ずある
+    if (R >= 3 && built.nodes[R - 2].every(isMatch)) {
+      var q = built.nodes[R - 2];
+      var after = [built.nodes[R][0].id, third.id];
+      var below = q[0].entriesBelow.concat(q[1].entriesBelow, q[2].entriesBelow, q[3].entriesBelow);
+      var a = add('p58m0', 'place58', R + 1, [loser(q[0]), loser(q[1])], q[0].entriesBelow.concat(q[1].entriesBelow), after);
+      var b = add('p58m1', 'place58', R + 1, [loser(q[2]), loser(q[3])], q[2].entriesBelow.concat(q[3].entriesBelow), after);
+      add('p5', 'place5', R + 2, [winner(a), winner(b)], below);
+      add('p7', 'place7', R + 2, [loser(a), loser(b)], below);
+    }
+    return { rounds: R, nodes: built.nodes, matches: matches };
   }
 
   function roundName(round, rounds) {
@@ -262,6 +291,12 @@
     if (round === rounds - 1) return '準決勝';
     if (round === rounds - 2) return '準々決勝';
     return round + '回戦';
+  }
+
+  var STAGE_NAMES = { third: '3位決定戦', place58: '5〜8位決定戦', place5: '5位決定戦', place7: '7位決定戦' };
+
+  function matchName(m, rounds) {
+    return m.stage === 'main' ? roundName(m.round, rounds) : STAGE_NAMES[m.stage];
   }
 
   // ---------- 日程と審判 ----------
@@ -277,52 +312,204 @@
     return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   }
 
-  // 時間枠ごとにコートへ試合を割り当て、審判を決める。
-  // opts: { courts: ['1', '2'], start: '09:00', duration: 30, restSlots: 1 }
+  // 「負けた2ペアから1人ずつ」にする回戦。値は決勝から何回戦さかのぼるか。
+  var PAIR_FROM = { qf: 2, sf: 1 };
+
+  function matchKey(divisionId, matchId) { return divisionId + ':' + matchId; }
+
+  // 全部門の試合を一覧にする。key は「部門id:試合id」。組み合わせのない部門は飛ばす。
+  function eventMatches(divisions) {
+    var items = [];
+    divisions.forEach(function (d, di) {
+      if (!d.bracket) return;
+      var dm = divisionMatches(d.bracket);
+      var byId = indexEntries(d.entries);
+      dm.matches.forEach(function (m) {
+        items.push({ key: matchKey(d.id, m.id), div: d, divIndex: di, m: m, rounds: dm.rounds, byId: byId });
+      });
+    });
+    return items;
+  }
+
+  // 試合 m の前に終わっていなければならない試合の id
+  function prerequisites(m) {
+    var ids = m.after.slice();
+    m.sides.forEach(function (s) { if (s.type !== 'entry') ids.push(s.matchId); });
+    return ids;
+  }
+
+  // 全部門の試合を時間枠（対戦順）ごとにコートへ割り当て、審判を決める。
+  // 空いたコートには、どの部門でも始められる試合を入れる。進み具合の遅れている部門から先に入れ、
+  // 同じ部門の試合は、なるべくその部門が直前に使ったコートに入れる。
+  // divisions: [{ id, entries, bracket }]
+  // opts: { courts: ['1', …], start: '09:00', duration: 30, restSlots: 1, pairFrom: 'qf' | 'sf' }
   //   restSlots: 同じチームの試合の間に空ける時間枠の数（0なら連戦あり）
-  // 試合番号は時刻・コート順に振り直す（印刷した表で番号順に試合が進むように）。
-  // 返り値: { order: [試合id], rows: { 試合id: { time, court, umpire } }, warnings: [] }
-  function scheduleMatches(bracket, entries, opts) {
-    var built = buildMatches(bracket);
-    var matches = built.matches;
+  // 試合番号は全部門の通し番号で、対戦順・コート順に振る。
+  // 返り値: { courts, slotTimes: ['09:00', …], matches: { key: { slot, court, no, umpire } }, warnings }
+  //   court はコートの番号（courts の何番目か、0始まり）
+  function scheduleEvent(divisions, opts) {
     var courts = opts.courts;
     var startMin = parseTime(opts.start);
     var duration = Number(opts.duration);
     var rest = Number(opts.restSlots) || 0;
+    var pairBack = PAIR_FROM[opts.pairFrom] || PAIR_FROM.qf;
     if (!courts.length) throw new Error('コート名を1つ以上入力してください。');
     if (startMin === null) throw new Error('開始時刻は「09:00」の形で入力してください。');
     if (!(duration > 0)) throw new Error('1試合の目安時間は1分以上で入力してください。');
 
-    var byId = indexEntries(entries);
-    var byMatchId = {};
-    matches.forEach(function (m) { byMatchId[m.id] = m; });
+    var items = eventMatches(divisions);
+    if (!items.length) throw new Error('試合がありません。各部門で「組み合わせを作成」を押すと、その部門の試合が追加されます。');
+    var byKey = {};
+    items.forEach(function (it) { byKey[it.key] = it; });
+    function refKey(it, matchId) { return matchKey(it.div.id, matchId); }
 
-    // 時間枠とコートを決める（試合番号の小さい順に、始められる試合から詰める）
-    var slotOf = {};
-    var courtOf = {};
-    var pending = matches.slice();
+    // 後に続く試合の連なりの長さ（長い試合ほど先に入れないと全体が遅れる）
+    var height = {};
+    items.slice().reverse().forEach(function (it) {
+      if (height[it.key] === undefined) height[it.key] = 1;
+      prerequisites(it.m).forEach(function (id) {
+        var k = refKey(it, id);
+        height[k] = Math.max(height[k] || 1, height[it.key] + 1);
+      });
+    });
+    var total = {}, done = {};
+    items.forEach(function (it) { total[it.div.id] = (total[it.div.id] || 0) + 1; done[it.div.id] = 0; });
+
+    // ---- 時間枠とコート ----
+    var slotOf = {}, courtOf = {};
+    var lastDiv = courts.map(function () { return null; });
+    var pending = items.slice();
+    var blocked = {};
     var t = 0;
-    while (pending.length) {
-      var ready = pending.filter(function (m) {
-        return m.sides.every(function (s) {
-          return s.type === 'entry' || (slotOf[s.matchId] !== undefined && slotOf[s.matchId] + 1 + rest <= t);
+    // 時間枠 t に試合 it を入れるとき、同じ部門で審判を出せそうなペアの数（おおよそ）。
+    // chosen は t にすでに入れた試合。終わった試合の敗者（t に試合をしないもの）と、まだ試合をしていないチームを数える。
+    // 5〜8位決定戦などは、決勝・3位決定戦に出たペアを数える。
+    function umpireSources(it, chosen) {
+      var now = chosen.concat([it]);
+      var playingNow = {};
+      var played = {};
+      now.forEach(function (c) {
+        c.m.sides.forEach(function (s) {
+          if (s.type === 'loser') playingNow[refKey(c, s.matchId)] = true;
+          if (s.type === 'entry') played[s.entryId] = true;
         });
-      }).slice(0, courts.length);
-      ready.forEach(function (m, c) { slotOf[m.id] = t; courtOf[m.id] = c; });
-      pending = pending.filter(function (m) { return slotOf[m.id] === undefined; });
+      });
+      var n = 0;
+      items.forEach(function (x) {
+        if (x.div !== it.div || slotOf[x.key] === undefined) return;
+        x.m.sides.forEach(function (s) { if (s.type === 'entry') played[s.entryId] = true; });
+        var finished = slotOf[x.key] < t;
+        if (it.m.stage.indexOf('place') === 0) {
+          if (finished && (x.m.stage === 'third' || (x.m.stage === 'main' && x.m.round === x.rounds))) n += 2;
+        } else if (finished && x.m.stage === 'main' && !playingNow[x.key]) {
+          n++;
+        }
+      });
+      if (it.m.stage.indexOf('place') !== 0) {
+        it.div.entries.forEach(function (e) { if (!played[e.id]) n++; });
+      }
+      return n;
+    }
+    while (pending.length) {
+      var ready = pending.filter(function (it) {
+        var playersReady = it.m.sides.every(function (s) {
+          if (s.type === 'entry') return true;
+          var p = slotOf[refKey(it, s.matchId)];
+          return p !== undefined && p + 1 + rest <= t;
+        });
+        var afterDone = it.m.after.every(function (id) {
+          var p = slotOf[refKey(it, id)];
+          return p !== undefined && p < t;
+        });
+        return playersReady && afterDone;
+      });
+      // まだ試合をしていない部門 → 後に続く試合の連なりが長い試合 → 進み具合の遅れている部門の順
+      ready.sort(function (a, b) {
+        return (done[a.div.id] ? 1 : 0) - (done[b.div.id] ? 1 : 0) || height[b.key] - height[a.key] ||
+          done[a.div.id] / total[a.div.id] - done[b.div.id] / total[b.div.id] || a.divIndex - b.divIndex || a.m.no - b.m.no;
+      });
+      // 同じ時間枠に同じ部門の試合が入っていて、審判を出せるチームが足りない試合は、次の時間枠に回す
+      // （その試合が終われば敗者が審判を出せる）。同じ部門の試合が入っていなければ、待っても審判は増えないので回さない。
+      // 通算2回回した試合は、審判がいなくても入れる。
+      var chosen = [];
+      ready.forEach(function (it) {
+        if (chosen.length >= courts.length) return;
+        var sameDiv = chosen.filter(function (c) { return c.div === it.div; }).length;
+        if ((blocked[it.key] || 0) < 2 && sameDiv > 0 && umpireSources(it, chosen) <= sameDiv) {
+          blocked[it.key] = (blocked[it.key] || 0) + 1;
+          return;
+        }
+        chosen.push(it);
+      });
+      var used = {};
+      var placed = {};
+      // 同じ部門が最後に使ったコートを優先し、残りは空いているコートに入れる
+      chosen.forEach(function (it) {
+        for (var c = 0; c < courts.length; c++) {
+          if (!used[c] && lastDiv[c] === it.div.id) { used[c] = true; placed[it.key] = c; return; }
+        }
+      });
+      chosen.forEach(function (it) {
+        if (placed[it.key] !== undefined) return;
+        var c = -1;
+        for (var i = 0; i < courts.length && c < 0; i++) if (!used[i] && lastDiv[i] === null) c = i;
+        for (var j = 0; j < courts.length && c < 0; j++) if (!used[j]) c = j;
+        used[c] = true;
+        placed[it.key] = c;
+      });
+      chosen.forEach(function (it) {
+        slotOf[it.key] = t;
+        courtOf[it.key] = placed[it.key];
+        lastDiv[placed[it.key]] = it.div.id;
+        done[it.div.id]++;
+      });
+      pending = pending.filter(function (it) { return slotOf[it.key] === undefined; });
       t++;
       if (t > 10000) throw new Error('日程を組めませんでした。');
     }
 
-    // 各チームが最初に試合をする時間枠（審判を頼めるのはそれより前）
-    var firstPlay = {};
-    matches.forEach(function (m) {
-      m.sides.forEach(function (s) {
-        if (s.type === 'entry') firstPlay[s.entryId] = slotOf[m.id];
+    var ordered = items.slice().sort(function (a, b) {
+      return slotOf[a.key] - slotOf[b.key] || courtOf[a.key] - courtOf[b.key];
+    });
+    var noOf = {};
+    ordered.forEach(function (it, i) { noOf[it.key] = i + 1; });
+
+    // ---- 審判 ----
+    // 審判を出す相手（source）は次のどれか。
+    //   'L:key' = その試合の敗者、'W:key' = その試合の勝者、'E:部門id:チームid' = まだ試合をしていないチーム
+    function sideSource(it, s) {
+      if (s.type === 'entry') return 'E:' + matchKey(it.div.id, s.entryId);
+      return (s.type === 'winner' ? 'W:' : 'L:') + refKey(it, s.matchId);
+    }
+    var appears = {}; // source → その source が出る試合の key
+    items.forEach(function (it) {
+      it.m.sides.forEach(function (s) {
+        var src = sideSource(it, s);
+        (appears[src] = appears[src] || []).push(it.key);
       });
     });
-
-    function clubsOf(ids) {
+    // その source のチームが試合をする（かもしれない）時間枠
+    var busyMemo = {};
+    function busy(src) {
+      if (busyMemo[src]) return busyMemo[src];
+      var set = {};
+      (appears[src] || []).forEach(function (k) {
+        set[slotOf[k]] = true;
+        [busy('W:' + k), busy('L:' + k)].forEach(function (s) { Object.keys(s).forEach(function (x) { set[x] = true; }); });
+      });
+      busyMemo[src] = set;
+      return set;
+    }
+    function firstPlay(src) {
+      return Math.min.apply(null, Object.keys(busy(src)).map(Number));
+    }
+    function origin(src) { return src.charAt(0) === 'E' ? null : byKey[src.slice(2)]; }
+    function usable(src, slot, umpAt) {
+      if (umpAt[src] || busy(src)[slot]) return false;
+      var o = origin(src);
+      return o ? slotOf[o.key] < slot : firstPlay(src) > slot;
+    }
+    function clubsOf(byId, ids) {
       var set = Object.create(null);
       ids.forEach(function (id) { if (byId[id] && byId[id].club) set[byId[id].club] = true; });
       return set;
@@ -332,59 +519,147 @@
       Object.keys(a).forEach(function (k) { if (b[k]) n++; });
       return n;
     }
+    function label(src) {
+      var o = origin(src);
+      if (o) return '第' + noOf[o.key] + '試合の' + (src.charAt(0) === 'W' ? '勝者' : '敗者');
+      return entryNames[src];
+    }
 
-    var ordered = matches.slice().sort(function (a, b) {
-      return slotOf[a.id] - slotOf[b.id] || courtOf[a.id] - courtOf[b.id];
-    });
-    ordered.forEach(function (m, i) { m.no = i + 1; });
-    var loserUsed = {};
-    var umpCount = {};
-    var umpAt = {};
-    var rows = {};
-    var warnings = [];
-
-    ordered.forEach(function (m) {
-      var slot = slotOf[m.id];
-      var matchClubs = clubsOf(m.entriesBelow);
-      var umpire = '';
-
-      // 1. すでに終わった試合の負けたチーム（同じ所属が少なく、直前に終わったものを優先）
-      var losers = matches.filter(function (x) { return slotOf[x.id] < slot && !loserUsed[x.id]; })
-        .map(function (x) { return { m: x, ov: overlap(clubsOf(x.entriesBelow), matchClubs) }; })
-        .sort(function (a, b) { return a.ov - b.ov || slotOf[b.m.id] - slotOf[a.m.id] || a.m.no - b.m.no; });
-      if (losers.length) {
-        loserUsed[losers[0].m.id] = true;
-        umpire = '第' + losers[0].m.no + '試合の負け';
-      } else {
-        // 2. その時点でまだ試合をしていないチーム（審判の回数が少なく、同じ所属でなく、試合が遅いものを優先）
-        var key = 's' + slot;
-        umpAt[key] = umpAt[key] || {};
-        var free = entries.filter(function (e) { return firstPlay[e.id] > slot && !umpAt[key][e.id]; })
-          .map(function (e) {
-            var c = Object.create(null); if (e.club) c[e.club] = true;
-            return { e: e, ov: overlap(c, matchClubs) };
-          })
-          .sort(function (a, b) {
-            return (umpCount[a.e.id] || 0) - (umpCount[b.e.id] || 0) || a.ov - b.ov || firstPlay[b.e.id] - firstPlay[a.e.id];
-          });
-        if (free.length) {
-          var e = free[0].e;
-          umpCount[e.id] = (umpCount[e.id] || 0) + 1;
-          umpAt[key][e.id] = true;
-          umpire = e.name;
-        } else {
-          warnings.push('第' + m.no + '試合は審判を割り当てられませんでした。試合進行表の審判欄に直接入力できます。');
+    // 審判の表示。2組から1人ずつのときは短くまとめる。
+    //   同じ試合の勝者と敗者 →「第25試合の両チームから1人ずつ」
+    //   2つの試合の敗者（または勝者）→「第11・13試合の敗者から1人ずつ」
+    function umpireLabel(picked) {
+      if (!picked.length) return '';
+      if (picked.length === 1) return label(picked[0]);
+      var o = picked.map(origin);
+      if (o[0] && o[1]) {
+        var n = [noOf[o[0].key], noOf[o[1].key]];
+        var kind = [picked[0].charAt(0), picked[1].charAt(0)];
+        if (n[0] === n[1]) return '第' + n[0] + '試合の両チームから1人ずつ';
+        if (kind[0] === kind[1]) {
+          n.sort(function (a, b) { return a - b; });
+          return '第' + n[0] + '・' + n[1] + '試合の' + (kind[0] === 'W' ? '勝者' : '敗者') + 'から1人ずつ';
         }
       }
+      return picked.map(label).join('、') + 'から1人ずつ';
+    }
 
-      rows[m.id] = {
-        time: formatTime(startMin + slot * duration),
-        court: courts[courtOf[m.id]],
-        umpire: umpire
-      };
+    // 部門ごとの source の一覧
+    var pools = {};
+    var entryNames = {};
+    items.forEach(function (it) {
+      var p = pools[it.div.id];
+      if (!p) {
+        p = pools[it.div.id] = { mainLosers: [], qfLosers: [], best4: [], entries: [] };
+        it.div.entries.forEach(function (e) {
+          var src = 'E:' + matchKey(it.div.id, e.id);
+          p.entries.push(src);
+          entryNames[src] = e.name;
+        });
+      }
+      var m = it.m;
+      if (m.stage === 'main') {
+        p.mainLosers.push('L:' + it.key);
+        if (m.round === it.rounds - 2) p.qfLosers.push('L:' + it.key);
+        if (m.round === it.rounds) p.best4.push('W:' + it.key, 'L:' + it.key);
+      } else if (m.stage === 'third') {
+        p.best4.push('W:' + it.key, 'L:' + it.key);
+      }
     });
 
-    return { order: ordered.map(function (m) { return m.id; }), rows: rows, warnings: warnings };
+    var uses = {};
+    var rows = {};
+    var warnings = [];
+    function unused(list) { return list.filter(function (s) { return !uses[s]; }); }
+    // 審判を探す候補の一覧（前の一覧から順に探す）と、出してもらうペアの数
+    function plan(it) {
+      var m = it.m;
+      var p = pools[it.div.id];
+      if (m.stage === 'main' && m.round < it.rounds) {
+        return { tiers: [unused(p.mainLosers), p.entries, p.mainLosers], need: m.round >= it.rounds - pairBack ? 2 : 1 };
+      }
+      if (m.stage === 'main' || m.stage === 'third') return { tiers: [p.qfLosers, p.mainLosers, p.entries], need: 2 };
+      return { tiers: [p.best4], need: 2 };
+    }
+    function score(it, src) {
+      var o = origin(src);
+      var slot = slotOf[it.key];
+      var sameCourt = o && slotOf[o.key] === slot - 1 && courtOf[o.key] === courtOf[it.key] ? 1 : 0;
+      var clubs = o ? clubsOf(it.byId, o.m.entriesBelow) : clubsOf(it.byId, [src.slice(src.lastIndexOf(':') + 1)]);
+      return { uses: uses[src] || 0, sameCourt: sameCourt, ov: overlap(clubs, clubsOf(it.byId, it.m.entriesBelow)), recent: o ? slotOf[o.key] : firstPlay(src) };
+    }
+    // 候補の一覧から、条件に合う相手を1組選ぶ（審判の回数が少ない → 同じコートの直前の試合 → 所属が重ならない → 最近の順）
+    function pickOne(it, umpAt, picked) {
+      var tiers = plan(it).tiers;
+      for (var i = 0; i < tiers.length; i++) {
+        var cands = tiers[i].filter(function (s) { return picked.indexOf(s) < 0 && usable(s, slotOf[it.key], umpAt); })
+          .map(function (s) { return { s: s, sc: score(it, s) }; })
+          .sort(function (a, b) {
+            return a.sc.uses - b.sc.uses || b.sc.sameCourt - a.sc.sameCourt || a.sc.ov - b.sc.ov ||
+              b.sc.recent - a.sc.recent || (a.s < b.s ? -1 : a.s > b.s ? 1 : 0);
+          });
+        if (cands.length) return cands[0].s;
+      }
+      return null;
+    }
+
+    // 同じ時間枠の試合には、まず1組ずつ割り当ててから、2組目が要る試合に足す
+    for (var slot = 0; slot < t; slot++) {
+      var inSlot = ordered.filter(function (it) { return slotOf[it.key] === slot; });
+      var umpAt = {};
+      var pickedOf = {};
+      [1, 2].forEach(function (pass) {
+        inSlot.forEach(function (it) {
+          var picked = pickedOf[it.key] = pickedOf[it.key] || [];
+          if (plan(it).need < pass || picked.length !== pass - 1) return;
+          var src = pickOne(it, umpAt, picked);
+          if (!src) return;
+          picked.push(src);
+          uses[src] = (uses[src] || 0) + 1;
+          umpAt[src] = true;
+        });
+      });
+      inSlot.forEach(function (it) {
+        var picked = pickedOf[it.key];
+        if (!picked.length) {
+          warnings.push('第' + noOf[it.key] + '試合は審判を割り当てられませんでした。試合進行表の審判欄に直接入力できます。');
+        }
+        rows[it.key] = {
+          slot: slot,
+          court: courtOf[it.key],
+          no: noOf[it.key],
+          umpire: umpireLabel(picked)
+        };
+      });
+    }
+
+    var slotTimes = [];
+    for (var s = 0; s < t; s++) slotTimes.push(formatTime(startMin + s * duration));
+    return { courts: courts.slice(), slotTimes: slotTimes, matches: rows, warnings: warnings };
+  }
+
+  // 試合進行表の並びを確かめる。前の試合（勝者・敗者が出る試合、5〜8位決定戦の前の決勝など）より
+  // 後の対戦順になっていない試合と、試合進行表に入っていない試合を知らせる。
+  function checkSchedule(divisions, schedule) {
+    var warnings = [];
+    var missing = [];
+    eventMatches(divisions).forEach(function (it) {
+      var r = schedule.matches[it.key];
+      if (!r) {
+        if (missing.indexOf(it.div) < 0) missing.push(it.div);
+        return;
+      }
+      prerequisites(it.m).forEach(function (id) {
+        var p = schedule.matches[matchKey(it.div.id, id)];
+        if (p && p.slot >= r.slot) {
+          warnings.push('第' + r.no + '試合が、先に終わる必要のある第' + p.no + '試合と同じか、それより前の対戦順になっています。');
+        }
+      });
+    });
+    missing.forEach(function (d) {
+      warnings.push('「' + (d.name || '名前なし') + '」の試合が試合進行表に含まれていません。「日程を自動作成」を押すと追加されます。');
+    });
+    return warnings;
   }
 
   // ---------- 表示用 ----------
@@ -402,16 +677,18 @@
     return t.indexOf(kind) >= 0 ? t : t + ' ' + kind;
   }
 
-  function sideLabel(side, byId, matchById) {
+  // nos: { 試合id: 試合番号 }
+  function sideLabel(side, byId, nos) {
     if (side.type === 'entry') return byId[side.entryId] ? byId[side.entryId].name : '';
-    return '第' + matchById[side.matchId].no + '試合の勝者';
+    return '第' + nos[side.matchId] + '試合の' + (side.type === 'winner' ? '勝者' : '敗者');
   }
 
   // ---------- 保存データの検証 ----------
 
-  // 読み込んだ JSON が使える形かを確かめる。問題があればエラー文を返す。
-  function validateState(s) {
-    if (!s || typeof s !== 'object') return 'ファイルの形式が正しくありません。';
+  var MAX_DIVISIONS = 30;
+
+  // 1部門ぶん（entries, bracket）のデータを確かめる。問題があればエラー文を返す。
+  function validateDivision(s) {
     if (!Array.isArray(s.entries)) return '参加チームのデータがありません。';
     var ids = Object.create(null);
     for (var i = 0; i < s.entries.length; i++) {
@@ -443,8 +720,53 @@
     return null;
   }
 
+  // 読み込んだ JSON が使える形かを確かめる。問題があればエラー文を返す。
+  // 部門のある形（divisions）と、部門のない以前の形（entries, bracket）のどちらも受け付ける。
+  function validateState(s) {
+    if (!s || typeof s !== 'object') return 'ファイルの形式が正しくありません。';
+    if (!Array.isArray(s.divisions)) return validateDivision(s);
+    if (!s.divisions.length || s.divisions.length > MAX_DIVISIONS) return '部門のデータが正しくありません。';
+    var ids = Object.create(null);
+    for (var i = 0; i < s.divisions.length; i++) {
+      var d = s.divisions[i];
+      if (!d || typeof d.id !== 'string' || !/^[A-Za-z0-9_-]+$/.test(d.id) || ids[d.id] || typeof d.name !== 'string') {
+        return '部門のデータが正しくありません。';
+      }
+      ids[d.id] = true;
+      var err = validateDivision(d);
+      if (err) return '「' + d.name + '」：' + err;
+    }
+    return null;
+  }
+
+  // 保存した試合進行表が今の組み合わせで使えるかを確かめる。
+  // 組み合わせを作り直して試合がなくなった場合なども使えないとみなす（試合が足りないだけなら使える）。
+  function validSchedule(sc, divisions) {
+    if (!sc || typeof sc !== 'object') return false;
+    if (!Array.isArray(sc.courts) || !sc.courts.length || !sc.courts.every(function (c) { return typeof c === 'string'; })) return false;
+    if (!Array.isArray(sc.slotTimes) || !sc.slotTimes.every(function (x) { return typeof x === 'string'; })) return false;
+    if (!sc.matches || typeof sc.matches !== 'object' || Array.isArray(sc.matches)) return false;
+    var keys = Object.create(null);
+    eventMatches(divisions).forEach(function (it) { keys[it.key] = true; });
+    var cells = Object.create(null);
+    var nos = Object.create(null);
+    return Object.keys(sc.matches).every(function (k) {
+      var r = sc.matches[k];
+      if (!keys[k] || !r || typeof r.umpire !== 'string') return false;
+      if (!(Number.isInteger(r.slot) && r.slot >= 0 && r.slot < sc.slotTimes.length)) return false;
+      if (!(Number.isInteger(r.court) && r.court >= 0 && r.court < sc.courts.length)) return false;
+      if (!(Number.isInteger(r.no) && r.no > 0) || nos[r.no]) return false;
+      var cell = r.slot + ':' + r.court;
+      if (cells[cell]) return false;
+      cells[cell] = true;
+      nos[r.no] = true;
+      return true;
+    });
+  }
+
   var api = {
     MAX_ENTRIES: MAX_ENTRIES,
+    MAX_DIVISIONS: MAX_DIVISIONS,
     parseEntries: parseEntries,
     buildEntries: buildEntries,
     rowsFromText: rowsFromText,
@@ -457,14 +779,21 @@
     firstRoundClubClashes: firstRoundClubClashes,
     swapSlots: swapSlots,
     buildMatches: buildMatches,
+    divisionMatches: divisionMatches,
+    eventMatches: eventMatches,
+    prerequisites: prerequisites,
+    matchKey: matchKey,
     roundName: roundName,
+    matchName: matchName,
     parseTime: parseTime,
     formatTime: formatTime,
-    scheduleMatches: scheduleMatches,
+    scheduleEvent: scheduleEvent,
+    checkSchedule: checkSchedule,
     indexEntries: indexEntries,
     sideLabel: sideLabel,
     titleFor: titleFor,
-    validateState: validateState
+    validateState: validateState,
+    validSchedule: validSchedule
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

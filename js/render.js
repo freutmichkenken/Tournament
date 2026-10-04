@@ -40,7 +40,16 @@
     var t = row ? row.time : '';
     var c = row && row.court ? 'コート' + row.court : '';
     out.push('<text x="' + x + '" y="' + (y - 4) + '" font-size="8" class="info-label">審判</text>');
-    if (u) out.push(fitText(x + 18, y - 4, u, 10, width - 18, ' class="info-val"'));
+    if (u) {
+      // 長い審判（「〜から1人ずつ」など）は2行に分ける
+      var cut = u.indexOf('から');
+      if (textWidth(u, 10) > width - 18 && cut > 0) {
+        out.push(fitText(x + 18, y - 15, u.slice(0, cut), 9, width - 18, ' class="info-val"'));
+        out.push(fitText(x + 18, y - 4, u.slice(cut), 9, width - 18, ' class="info-val"'));
+      } else {
+        out.push(fitText(x + 18, y - 4, u, 10, width - 18, ' class="info-val"'));
+      }
+    }
     if (row) {
       out.push(fitText(x, y + 11, t, 10, 30, ' class="info-val"'));
       if (c) out.push(fitText(x + 34, y + 11, c, 10, width - 34, ' class="info-val"'));
@@ -50,14 +59,79 @@
     }
   }
 
-  // state: { title, entries, bracket }, opts: { order, rows, blank, selectedSlot, clashSlots }
-  // rows: 試合進行表の { 試合id: { time, court, umpire } }。blank が true なら記入欄を空欄にする。
-  function renderBracket(state, opts) {
+  // 試合番号を書いた「第○試合の敗者」などの枠
+  function refBox(out, x, y, s) {
+    out.push('<rect x="' + x + '" y="' + (y - BOX_H / 2) + '" width="' + BOX_W + '" height="' + BOX_H + '" rx="2" fill="#f7f7f5" stroke="#888" class="ref-box"/>');
+    out.push(fitText(x + 6, y + 4.5, s, 12, BOX_W - 12, ' class="ref-label"'));
+  }
+
+  // 3位決定戦・5〜8位決定戦の山。y0 から下に描き、描いた高さを返す。
+  // ms: 部門の全試合、label(side): 枠に書く文字、info(m, x, y): 記入欄、no(m): 試合番号
+  function renderPlacement(out, y0, ms, label, info, no) {
+    var byStage = {};
+    ms.forEach(function (m) { (byStage[m.stage] = byStage[m.stage] || []).push(m); });
+    if (!byStage.third) return 0;
+    var lines = [];
+    function line(x1, y1, x2, y2) { lines.push('<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="#333"/>'); }
+    function heading(x, y, s) { out.push('<text x="' + x + '" y="' + y + '" font-size="14" font-weight="bold" class="final">' + esc(s) + '</text>'); }
+    // 2つの枠を線でつなぎ、つないだ点を返す
+    function pair(x, y, m) {
+      refBox(out, x, y, label(m.sides[0]));
+      refBox(out, x, y + ROW_H, label(m.sides[1]));
+      var X = x + BOX_W + COL_W;
+      line(x + BOX_W, y, X, y);
+      line(x + BOX_W, y + ROW_H, X, y + ROW_H);
+      line(X, y, X, y + ROW_H);
+      var mid = y + ROW_H / 2;
+      out.push('<text x="' + (X - 4) + '" y="' + (mid + 4) + '" font-size="11" text-anchor="end" class="match-no">' + no(m) + '</text>');
+      return { x: X, y: mid };
+    }
+
+    var top = y0 + 30;
+    heading(X0, y0 + 10, '3位決定戦');
+    var t = pair(X0, top, byStage.third[0]);
+    info(byStage.third[0], t.x + 4, t.y);
+    var h = 2 * ROW_H + 30;
+    if (byStage.place58) {
+      // 7位決定戦は3位決定戦の下、5〜8位決定戦と5位決定戦は右に描く
+      var y7 = top + 2 * ROW_H + 40;
+      heading(X0, y7 - 20, '7位決定戦');
+      var s7 = pair(X0, y7, byStage.place7[0]);
+      info(byStage.place7[0], s7.x + 4, s7.y);
+
+      var x58 = X0 + BOX_W + COL_W + INFO_W + 40;
+      heading(x58, y0 + 10, '5〜8位決定戦と5位決定戦');
+      var a = pair(x58, top, byStage.place58[0]);
+      var b = pair(x58, top + 2 * ROW_H, byStage.place58[1]);
+      info(byStage.place58[0], a.x + 4, a.y);
+      info(byStage.place58[1], b.x + 4, b.y);
+      var X2 = a.x + COL_W;
+      line(a.x, a.y, X2, a.y);
+      line(b.x, b.y, X2, b.y);
+      line(X2, a.y, X2, b.y);
+      var mid5 = (a.y + b.y) / 2;
+      out.push('<text x="' + (X2 - 4) + '" y="' + (mid5 + 4) + '" font-size="11" text-anchor="end" class="match-no">' + no(byStage.place5[0]) + '</text>');
+      info(byStage.place5[0], X2 + 4, mid5);
+      h = Math.max(4 * ROW_H, y7 + ROW_H * 2 - top) + 30;
+    }
+    out.push('<g class="lines">' + lines.join('') + '</g>');
+    return h + 10;
+  }
+
+  // div: { title, entries, bracket }（title は大会名と部門名）
+  // opts: { nos, rows, blank, selectedSlot, clashSlots }
+  //   nos: { 試合id: 試合番号 }、rows: 試合進行表の { 試合id: { time, court, umpire } }。
+  //   nos がなければ部門の中の仮の番号を使う。blank が true なら記入欄を空欄にする。
+  function renderBracket(div, opts) {
     opts = opts || {};
-    var bracket = state.bracket;
+    var bracket = div.bracket;
     var rows = opts.blank ? {} : (opts.rows || {});
-    var byId = L.indexEntries(state.entries);
-    var built = L.buildMatches(bracket, opts.order);
+    var byId = L.indexEntries(div.entries);
+    var built = L.divisionMatches(bracket);
+    var nos = opts.nos || {};
+    built.matches.forEach(function (m) { if (nos[m.id]) m.no = nos[m.id]; });
+    var noOf = {};
+    built.matches.forEach(function (m) { noOf[m.id] = m.no; });
     var R = built.rounds;
     var size = bracket.size;
     var half = size / 2;
@@ -88,7 +162,7 @@
     }
 
     // タイトル
-    var title = L.titleFor(state.title, 'トーナメント表');
+    var title = L.titleFor(div.title, 'トーナメント表');
     var titleW = Math.min(totalW - 40, Math.max(360, textWidth(title, 24) + 60));
     out.push('<g class="title">');
     out.push('<rect x="' + (cx - titleW / 2) + '" y="16" width="' + titleW + '" height="46" rx="2" fill="#ffd966" stroke="#222" stroke-width="3"/>');
@@ -153,9 +227,15 @@
     if (fa.y !== fb.y) out.push('<line x1="' + cx + '" y1="' + fa.y + '" x2="' + cx + '" y2="' + fb.y + '" stroke="#333"/>');
     out.push('</g>');
     var fy = Math.min(fa.y, fb.y);
-    out.push('<text x="' + cx + '" y="' + (fy - 84) + '" font-size="18" font-weight="bold" text-anchor="middle" class="final">決勝</text>');
-    out.push('<text x="' + cx + '" y="' + (fy - 66) + '" font-size="11" text-anchor="middle" class="match-no">第' + final.no + '試合</text>');
+    out.push('<text x="' + cx + '" y="' + (fy - 92) + '" font-size="18" font-weight="bold" text-anchor="middle" class="final">決勝</text>');
+    out.push('<text x="' + cx + '" y="' + (fy - 74) + '" font-size="11" text-anchor="middle" class="match-no">第' + final.no + '試合</text>');
     infos.push({ x: cx - INFO_W / 2, y: fy - 42, row: rows[final.id] });
+
+    // 3位決定戦・5〜8位決定戦
+    height += renderPlacement(out, height, built.matches,
+      function (side) { return L.sideLabel(side, byId, noOf); },
+      function (m, x, y) { infos.push({ x: x, y: y, row: rows[m.id] }); },
+      function (m) { return m.no; });
 
     infos.forEach(function (f) { matchInfo(out, f.x, f.y, INFO_W, f.row); });
     labels.forEach(function (lb) {

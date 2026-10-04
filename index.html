@@ -18,66 +18,95 @@
 
   <p id="storageNotice" class="notice warn no-print" hidden></p>
 
-  <main>
-    <section class="panel no-print">
-      <h2>1. 大会名</h2>
+  <main class="no-print">
+    <section class="panel">
+      <h2>大会名</h2>
       <input type="text" id="titleInput" class="wide" placeholder="〇〇杯">
     </section>
 
-    <section class="panel no-print">
-      <h2>2. 参加チーム</h2>
-      <p class="help">チーム名・所属を入力します。シードにするチームには、シードにチェックを入れます（複数チェックできます。シードにできる数を超えたら、入力欄の上のチームを優先します）。</p>
-      <div class="entry-head" aria-hidden="true"><span>チーム名</span><span>所属</span><span>シード</span><span></span></div>
-      <div id="entryRows"></div>
+    <nav class="tabs" aria-label="部門と試合進行表">
+      <div id="tabList" class="tab-list" role="tablist"></div>
+      <button type="button" id="editDivisionsBtn" class="tab-edit" aria-expanded="false">部門を編集</button>
+    </nav>
+
+    <section class="panel" id="divisionEditor" hidden>
+      <h2>部門の編集</h2>
+      <p class="help">部門の名前を変えたり、部門を追加・削除したりできます。</p>
+      <div id="divisionRows"></div>
       <div class="actions">
-        <button type="button" id="addRowBtn">チームを追加</button>
+        <button type="button" id="addDivisionBtn">部門を追加</button>
+        <button type="button" id="closeEditorBtn">閉じる</button>
       </div>
-      <div class="actions">
-        <button type="button" id="generateBtn" class="primary">組み合わせを作成</button>
-        <span id="entryCount" class="muted"></span>
-      </div>
-      <div id="entryMessages"></div>
     </section>
 
-    <section class="panel" id="bracketPanel" hidden>
-      <div class="panel-head no-print">
-        <h2>3. トーナメント表</h2>
+    <div id="divisionView">
+      <section class="panel">
+        <h2>参加チーム<span class="division-name" id="entriesDivisionName"></span></h2>
+        <p class="help">チーム名・所属を入力します。シードにするチームには、シードにチェックを入れます（複数チェックできます。シードにできる数を超えたら、入力欄の上のチームを優先します）。</p>
+        <div class="entry-head" aria-hidden="true"><span>チーム名</span><span>所属</span><span>シード</span><span></span></div>
+        <div id="entryRows"></div>
         <div class="actions">
-          <button type="button" id="rerollBtn">組み合わせを作り直す</button>
+          <button type="button" id="addRowBtn">チームを追加</button>
         </div>
-      </div>
-      <p class="help no-print">チーム名を押してから別のチーム名を押すと、2つのチームの位置が入れ替わります。</p>
-      <div id="bracketMessages" class="no-print"></div>
-      <div id="bracketArea" class="print-bracket"></div>
-    </section>
+        <div class="actions">
+          <button type="button" id="generateBtn" class="primary">組み合わせを作成</button>
+          <span id="entryCount" class="muted"></span>
+        </div>
+        <div id="entryMessages"></div>
+      </section>
 
-    <section class="panel" id="schedulePanel" hidden>
-      <h2 class="no-print">4. 試合進行表</h2>
-      <div class="schedule-settings no-print">
-        <label>コート名<input type="text" id="courtsInput" placeholder="1, 2, 3"></label>
-        <label>開始時刻<input type="time" id="startInput"></label>
-        <label>1試合の目安時間<span class="with-unit"><input type="number" id="durationInput" min="1" max="600"> 分</span></label>
-        <label class="check"><input type="checkbox" id="restInput"> 同じチームが2枠続けて試合をしない</label>
-      </div>
-      <p class="help no-print">コート名はカンマで区切ります。審判は、前に終わった試合の負けたチームから割り当てます。負けたチームがいない時間は、BYE のチームや試合がまだ先のチームから割り当てます。</p>
-      <div class="actions no-print">
-        <button type="button" id="scheduleBtn" class="primary">日程を自動作成</button>
-      </div>
-      <div id="scheduleMessages" class="no-print"></div>
-      <div id="scheduleArea" class="print-schedule"></div>
-    </section>
+      <section class="panel" id="bracketPanel" hidden>
+        <div class="panel-head">
+          <h2>トーナメント表<span class="division-name" id="bracketDivisionName"></span></h2>
+          <div class="actions">
+            <button type="button" id="rerollBtn">組み合わせを作り直す</button>
+          </div>
+        </div>
+        <p class="help">チーム名を押してから別のチーム名を押すと、2つのチームの位置が入れ替わります。3位決定戦などの順位決定戦は、表の下に表示されます。</p>
+        <div id="bracketMessages"></div>
+        <div id="bracketArea"></div>
+      </section>
+    </div>
 
-    <section class="panel no-print" id="printPanel" hidden>
-      <h2>5. 印刷</h2>
+    <div id="scheduleView" hidden>
+      <section class="panel">
+        <h2>試合進行表</h2>
+        <div class="schedule-settings">
+          <label>コート名<input type="text" id="courtsInput" placeholder="1, 2, 3, 4, 5, 6, 7, 8"></label>
+          <label>開始時刻<input type="time" id="startInput"></label>
+          <label>1試合の目安時間<span class="with-unit"><input type="number" id="durationInput" min="1" max="600"> 分</span></label>
+          <label>負けた2チームから1人ずつ審判を割り当てる回戦
+            <select id="pairFromInput">
+              <option value="qf">準々決勝から</option>
+              <option value="sf">準決勝から</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" id="restInput"> 同じチームが2枠続けて試合をしない</label>
+        </div>
+        <p class="help">コート名はカンマで区切ります。全部門の試合を、空いたコートに対戦順に入れます。審判は同じ部門のチームから割り当てます。</p>
+        <div class="actions">
+          <button type="button" id="scheduleBtn" class="primary">日程を自動作成</button>
+        </div>
+        <div id="scheduleMessages"></div>
+        <p class="help" id="gridHelp" hidden>試合のマスを押してから別のマスを押すと、2つの試合の位置が入れ替わります。空いたマスに移すこともできます。試合番号は変わりません。時刻と審判は直接書き換えられます。</p>
+        <div id="scheduleArea"></div>
+      </section>
+    </div>
+
+    <section class="panel" id="printPanel">
+      <h2>印刷</h2>
       <p class="help">A4横で印刷します。トーナメント表の各試合には、試合進行表の審判・時間・コートが表示されます。</p>
       <label class="check"><input type="checkbox" id="blankInfoInput"> トーナメント表の審判・時間・コートを空欄にして印刷する（手書き用）</label>
       <div class="actions">
-        <button type="button" data-print="bracket">トーナメント表を印刷</button>
+        <button type="button" data-print="division" id="printDivisionBtn">この部門のトーナメント表を印刷</button>
+        <button type="button" data-print="brackets">全部門のトーナメント表を印刷</button>
         <button type="button" data-print="schedule">試合進行表を印刷</button>
-        <button type="button" data-print="both">両方を印刷</button>
       </div>
+      <div id="printMessages"></div>
     </section>
   </main>
+
+  <div id="printArea" class="print-area"></div>
 
   <script src="js/logic.js"></script>
   <script src="js/render.js"></script>
