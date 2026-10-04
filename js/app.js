@@ -273,9 +273,7 @@
     if (!row || !field) return;
     var i = Number(row.getAttribute('data-row'));
     if (field === 'seed') {
-      // シードは1チームだけ。別のチームにチェックを入れたら、前のチェックは外す。
-      state.entryRows.forEach(function (r, j) { r.seed = j === i && t.checked; });
-      renderEntryRows();
+      state.entryRows[i].seed = t.checked;
     } else {
       state.entryRows[i][field] = t.value;
     }

@@ -7,7 +7,8 @@
 
   // ---------- 入力の読み取り ----------
 
-  // 入力欄の行 [{name, club, seed}] からチームを作る。seed が true のチームがシード（第1シードのみ）。
+  // 入力欄の行 [{name, club, seed}] からチームを作る。seed が true のチームがシード。
+  // シード順位は入力欄の上から 1, 2, 3…。シードにできる数（枠数の半分）を超えた分は、下の行から順にシードなしにする。
   function buildEntries(rows) {
     var entries = [];
     var errors = [];
@@ -20,15 +21,24 @@
         errors.push((i + 1) + '行目：チーム名がありません。');
         return;
       }
-      entries.push({ id: 'e' + (entries.length + 1), name: name, club: club, seed: row.seed ? 1 : null });
+      entries.push({ id: 'e' + (entries.length + 1), name: name, club: club, seed: row.seed ? 0 : null });
     });
 
     var n = entries.length;
     if (n < 2) errors.push('参加チームは2チーム以上必要です。');
     if (n > MAX_ENTRIES) errors.push('参加チームは' + MAX_ENTRIES + 'チームまでです（現在' + n + 'チーム）。');
 
-    var seeded = entries.filter(function (e) { return e.seed !== null; });
-    if (seeded.length > 1) errors.push('シードにできるのは1チームだけです。');
+    var maxSeeds = maxSeedCount(n);
+    var rank = 0;
+    var dropped = [];
+    entries.forEach(function (e) {
+      if (e.seed === null) return;
+      if (rank < maxSeeds) e.seed = ++rank;
+      else { e.seed = null; dropped.push(e.name); }
+    });
+    if (dropped.length) {
+      warnings.push('シードにできるのは' + maxSeeds + 'チームまでです。入力欄の上から優先し、「' + dropped.join('」「') + '」はシードなしにしました。');
+    }
 
     var names = Object.create(null);
     entries.forEach(function (e) {
@@ -40,7 +50,7 @@
   }
 
   // 「チーム名, 所属, シード」を1行ずつ書いたテキストを入力行に直す（旧形式の保存データ・テスト用）。
-  // 区切りはタブ・半角カンマ・全角カンマ。シードは1だけをシードとみなす。
+  // 区切りはタブ・半角カンマ・全角カンマ。シードは1だけをシードとみなす（複数の行に1があれば複数シード）。
   function rowsFromText(text) {
     var rows = [];
     String(text || '').split(/\r?\n/).forEach(function (line) {
@@ -61,6 +71,11 @@
     var size = 2;
     while (size < n) size *= 2;
     return size;
+  }
+
+  // シードにできるチーム数。シードは1回戦の別々の組に入れるため、1回戦の組の数（枠数の半分）まで。
+  function maxSeedCount(n) {
+    return bracketSize(n) / 2;
   }
 
   // 標準的なシード配置。返り値の i 番目は、i 番目の枠に入るシード順位。
@@ -124,7 +139,7 @@
     return cost;
   }
 
-  // 組み合わせを作る。シードは標準位置に固定し、BYE は上位シードの相手枠に置く。
+  // 組み合わせを作る。シードは標準位置に固定し（同じ所属どうしを避ける入れ替えの対象外）、BYE は上位シードの相手枠に置く。
   // シードなしのチームは、同じ所属が早い回戦で当たらないよう入れ替えを繰り返して配置する。
   function generateBracket(entries, rng) {
     rng = rng || Math.random;
@@ -434,6 +449,7 @@
     buildEntries: buildEntries,
     rowsFromText: rowsFromText,
     bracketSize: bracketSize,
+    maxSeedCount: maxSeedCount,
     seedOrder: seedOrder,
     meetRound: meetRound,
     clubCost: clubCost,

@@ -47,13 +47,37 @@ test('Object の組み込み名と同じペア名・所属でも誤判定しな�
   assert.strictEqual(L.validateState({ entries: r.entries, bracket: b }), null);
 });
 
-test('buildEntries はシードのチェックを読み取り、複数シードをエラーにする', () => {
+test('buildEntries はシードのチェックを読み取り、上の行から順位を付ける', () => {
   const ok = L.buildEntries([{ name: 'a', club: 'x', seed: true }, { name: 'b', club: 'y', seed: false }, { name: '', club: '', seed: false }]);
   assert.deepStrictEqual(ok.errors, []);
   assert.deepStrictEqual(ok.entries.map((e) => e.seed), [1, null]);
-  assert.ok(L.buildEntries([{ name: 'a', seed: true }, { name: 'b', seed: true }]).errors.length > 0);
+  const multi = L.buildEntries([{ name: 'a', seed: false }, { name: 'b', seed: true }, { name: 'c', seed: true }, { name: 'd' }]);
+  assert.deepStrictEqual(multi.errors, []);
+  assert.deepStrictEqual(multi.entries.map((e) => e.seed), [null, 1, 2, null]);
   assert.ok(L.buildEntries([{ name: '', club: 'x' }, { name: 'b' }, { name: 'c' }]).errors.length > 0);
   assert.ok(L.buildEntries([{ name: 'a' }]).errors.length > 0);
+});
+
+test('シードが多すぎるときは入力欄の上から優先し、超えた分はシードなしにする', () => {
+  // 4チーム＝4枠なのでシードは2チームまで
+  const r = L.buildEntries(['a', 'b', 'c', 'd'].map((name) => ({ name, club: name, seed: true })));
+  assert.deepStrictEqual(r.errors, []);
+  assert.deepStrictEqual(r.entries.map((e) => e.seed), [1, 2, null, null]);
+  assert.strictEqual(r.warnings.length, 1);
+  assert.ok(r.warnings[0].includes('「c」「d」'));
+});
+
+test('同じ所属のシードどうしでも、シードの位置は動かさない', () => {
+  const rows = [];
+  for (let i = 0; i < 8; i++) rows.push({ name: 't' + i, club: i < 4 ? 'A' : 'B', seed: i < 4 });
+  const r = L.buildEntries(rows);
+  for (let s = 1; s <= 10; s++) {
+    const b = L.generateBracket(r.entries, seededRng(s));
+    L.seedOrder(8).forEach((rank, i) => {
+      const e = r.entries.find((x) => x.seed === rank);
+      if (e) assert.strictEqual(b.slots[i], e.id);
+    });
+  }
 });
 
 test('20組なら32枠・BYE12で、BYEどうしは当たらない', () => {
@@ -90,7 +114,7 @@ test('避けられない場合は1回戦の同所属対戦が検出される', (
 });
 
 test('シードは標準位置に置かれ、上位シードがBYEになる', () => {
-  const r = L.parseEntries(['s1,A,1', 's2,B,2', 'x,C', 'y,D', 'z,E'].join('\n'));
+  const r = L.parseEntries(['s1,A,1', 's2,B,1', 'x,C', 'y,D', 'z,E'].join('\n'));
   const b = L.generateBracket(r.entries, seededRng(1));
   assert.strictEqual(b.slots[0], 'e1');
   assert.strictEqual(b.slots[1], null);
