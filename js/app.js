@@ -3,32 +3,37 @@
   'use strict';
 
   var L = window.TournamentLogic;
-  var esc = window.TournamentRender.esc;
+  var R = window.TournamentRender;
+  var esc = R.esc;
   var STORAGE_KEY = 'tournament-maker-v1';
+  var DEFAULT_DIVISIONS = ['男子低学年', '男子中学年', '男子高学年', '女子低学年', '女子中学年', '女子高学年'];
+  var SCHEDULE_TAB = 'schedule';
 
   var $ = function (id) { return document.getElementById(id); };
 
   function emptyRow() { return { name: '', club: '', seed: false }; }
 
+  function newDivision(id, name) {
+    return { id: id, name: name, entryRows: [emptyRow(), emptyRow(), emptyRow()], entries: [], bracket: null };
+  }
+
+  function defaultSettings() {
+    return { courts: '1, 2, 3, 4, 5, 6, 7, 8', start: '09:00', duration: 30, avoidBackToBack: true, pairFrom: 'qf' };
+  }
+
   function defaultState() {
     return {
-      version: 1,
+      version: 2,
       title: '〇〇杯',
-      entryRows: [emptyRow(), emptyRow(), emptyRow()],
-      entries: [],
-      bracket: null,
-      schedule: {
-        settings: { courts: '1, 2, 3', start: '09:00', duration: 30, avoidBackToBack: true },
-        order: null,
-        rows: null,
-        stale: false
-      }
+      divisions: DEFAULT_DIVISIONS.map(function (name, i) { return newDivision('d' + (i + 1), name); }),
+      tab: 'd1',
+      schedule: { settings: defaultSettings(), plan: null, stale: false }
     };
   }
 
   var state = load();
-  var selectedSlot = null;
-  var printingBlank = false; // 印刷中だけ、トーナメント表の記入欄を空欄にする
+  var selectedSlot = null; // トーナメント表で選んだチームの枠
+  var selectedCell = null; // 試合進行表で選んだマス（'時間枠:コート'）
   // 入力欄に薄く出す入力例
   var SAMPLE = [['山田・佐藤', '北高'], ['鈴木・田中', '南高'], ['高橋・伊藤', '東高']];
 
@@ -70,48 +75,98 @@
     return rows.length ? rows : [emptyRow(), emptyRow(), emptyRow()];
   }
 
-  // 保存データを確かめ、足りない項目を補う。使えないデータなら null。
-  function normalize(s) {
-    if (L.validateState(s)) return null;
-    var d = defaultState();
-    var out = {
-      version: 1,
-      title: typeof s.title === 'string' ? s.title : d.title,
+  // 1部門ぶんのデータ（検証済み）を、使う項目だけにする
+  function normalizeDivision(id, name, s) {
+    return {
+      id: id,
+      name: name,
       entryRows: rowsFrom(s),
       entries: s.entries.map(function (e) {
         return { id: e.id, name: e.name, club: e.club, seed: typeof e.seed === 'number' ? e.seed : null };
       }),
-      bracket: s.bracket ? { size: s.bracket.size, slots: s.bracket.slots.slice() } : null,
-      schedule: d.schedule
+      bracket: s.bracket ? { size: s.bracket.size, slots: s.bracket.slots.slice() } : null
     };
+  }
+
+  // 保存データを確かめ、足りない項目を補う。使えないデータなら null。
+  // 部門のない以前の保存データは、1つ目の部門（男子低学年）に入れる（試合進行表は作り直しになる）。
+  function normalize(s) {
+    if (L.validateState(s)) return null;
+    var d = defaultState();
+    var out = { version: 2, title: typeof s.title === 'string' ? s.title : d.title, divisions: null, tab: null, schedule: d.schedule };
+    if (Array.isArray(s.divisions)) {
+      out.divisions = s.divisions.map(function (x) { return normalizeDivision(x.id, x.name, x); });
+    } else {
+      out.divisions = d.divisions;
+      out.divisions[0] = normalizeDivision('d1', DEFAULT_DIVISIONS[0], s);
+    }
+    var ids = out.divisions.map(function (x) { return x.id; });
+    out.tab = s.tab === SCHEDULE_TAB || ids.indexOf(s.tab) >= 0 ? s.tab : ids[0];
+
     var sc = s.schedule;
     if (sc && typeof sc === 'object') {
       var st = sc.settings || {};
+      var ds = defaultSettings();
       out.schedule.settings = {
-        courts: typeof st.courts === 'string' ? st.courts : d.schedule.settings.courts,
-        start: typeof st.start === 'string' ? st.start : d.schedule.settings.start,
-        duration: Number(st.duration) > 0 ? Number(st.duration) : d.schedule.settings.duration,
-        avoidBackToBack: st.avoidBackToBack !== false
+        courts: typeof st.courts === 'string' ? st.courts : ds.courts,
+        start: typeof st.start === 'string' ? st.start : ds.start,
+        duration: Number(st.duration) > 0 ? Number(st.duration) : ds.duration,
+        avoidBackToBack: st.avoidBackToBack !== false,
+        pairFrom: st.pairFrom === 'sf' ? 'sf' : 'qf'
       };
-      if (out.bracket && Array.isArray(sc.order) && sc.rows && typeof sc.rows === 'object') {
-        var ids = L.buildMatches(out.bracket).matches.map(function (m) { return m.id; });
-        var okOrder = sc.order.length === ids.length && ids.every(function (id) { return sc.order.indexOf(id) >= 0; });
-        var okRows = ids.every(function (id) {
-          var r = sc.rows[id];
-          return r && typeof r.time === 'string' && typeof r.court === 'string' && typeof r.umpire === 'string';
+      if (Array.isArray(s.divisions) && L.validSchedule(sc.plan, out.divisions)) {
+        var plan = { courts: sc.plan.courts.slice(), slotTimes: sc.plan.slotTimes.slice(), matches: {} };
+        Object.keys(sc.plan.matches).forEach(function (k) {
+          var r = sc.plan.matches[k];
+          plan.matches[k] = { slot: r.slot, court: r.court, no: r.no, umpire: r.umpire };
         });
-        if (okOrder && okRows) {
-          out.schedule.order = sc.order.slice();
-          out.schedule.rows = {};
-          ids.forEach(function (id) {
-            var r = sc.rows[id];
-            out.schedule.rows[id] = { time: r.time, court: r.court, umpire: r.umpire };
-          });
-          out.schedule.stale = sc.stale === true;
-        }
+        out.schedule.plan = plan;
+        out.schedule.stale = sc.stale === true;
       }
     }
     return out;
+  }
+
+  // ---------- 部門 ----------
+
+  function current() {
+    for (var i = 0; i < state.divisions.length; i++) if (state.divisions[i].id === state.tab) return state.divisions[i];
+    return null;
+  }
+
+  function divisionName(d) { return d.name.trim() || '名前なし'; }
+
+  function divisionTitle(d) { return (state.title.trim() ? state.title.trim() + ' ' : '') + divisionName(d); }
+
+  function nextDivisionId() {
+    var max = 0;
+    state.divisions.forEach(function (d) {
+      var m = /^d(\d+)$/.exec(d.id);
+      if (m) max = Math.max(max, Number(m[1]));
+    });
+    return 'd' + (max + 1);
+  }
+
+  // 試合進行表のうち、その部門の試合（{ 試合id: 行 }）。全試合が入っていなければ null。
+  function planRowsOf(d) {
+    var plan = state.schedule.plan;
+    if (!plan || !d.bracket) return null;
+    var nos = {}, rows = {};
+    var all = L.divisionMatches(d.bracket).matches.every(function (m) {
+      var r = plan.matches[L.matchKey(d.id, m.id)];
+      if (!r) return false;
+      nos[m.id] = r.no;
+      rows[m.id] = { time: plan.slotTimes[r.slot] || '', court: plan.courts[r.court], umpire: r.umpire };
+      return true;
+    });
+    return all ? { nos: nos, rows: rows } : null;
+  }
+
+  function planHasDivision(d) {
+    var plan = state.schedule.plan;
+    if (!plan) return false;
+    var prefix = d.id + ':';
+    return Object.keys(plan.matches).some(function (k) { return k.indexOf(prefix) === 0; });
   }
 
   // ---------- 表示 ----------
@@ -124,36 +179,63 @@
     el.innerHTML = html;
   }
 
-  function hasSchedule() { return !!state.schedule.rows; }
-
   function renderAll() {
     $('titleInput').value = state.title;
-    renderEntryRows();
     var st = state.schedule.settings;
     $('courtsInput').value = st.courts;
     $('startInput').value = st.start;
     $('durationInput').value = st.duration;
+    $('pairFromInput').value = st.pairFrom;
     $('restInput').checked = st.avoidBackToBack;
-    updateEntryCount();
-    renderBracket();
-    renderSchedule();
+    renderTabs();
+    renderView();
+    if (!$('divisionEditor').hidden) renderDivisionRows();
+  }
+
+  function renderTabs() {
+    var html = '';
+    state.divisions.forEach(function (d) {
+      var on = state.tab === d.id;
+      html += '<button type="button" role="tab" class="tab' + (d.name.trim() ? '' : ' unnamed') + '" data-tab="' + esc(d.id) + '" aria-selected="' + on + '">' + esc(divisionName(d)) + '</button>';
+    });
+    var on2 = state.tab === SCHEDULE_TAB;
+    html += '<button type="button" role="tab" class="tab tab-schedule" data-tab="' + SCHEDULE_TAB + '" aria-selected="' + on2 + '">試合進行表</button>';
+    $('tabList').innerHTML = html;
+  }
+
+  function renderView() {
+    var d = current();
+    $('divisionView').hidden = !d;
+    $('scheduleView').hidden = !!d;
+    $('printDivisionBtn').hidden = !d;
+    if (d) {
+      $('entriesDivisionName').textContent = divisionName(d);
+      $('bracketDivisionName').textContent = divisionName(d);
+      renderEntryRows();
+      updateEntryCount();
+      renderBracket();
+    } else {
+      renderSchedule();
+    }
   }
 
   function updateEntryCount() {
-    var n = L.buildEntries(state.entryRows).entries.length;
+    var n = L.buildEntries(current().entryRows).entries.length;
     $('entryCount').textContent = n ? n + 'チーム' : '';
   }
 
   function renderBracket() {
-    var has = !!state.bracket;
+    var d = current();
+    var has = !!d.bracket;
     $('bracketPanel').hidden = !has;
-    $('schedulePanel').hidden = !has;
-    $('printPanel').hidden = !has;
-    if (!has) return;
+    if (!has) {
+      $('bracketArea').innerHTML = '';
+      return;
+    }
 
-    var clashes = L.firstRoundClubClashes(state.bracket, state.entries);
+    var clashes = L.firstRoundClubClashes(d.bracket, d.entries);
     var clashSlots = {};
-    state.bracket.slots.forEach(function (id, i) {
+    d.bracket.slots.forEach(function (id, i) {
       clashes.forEach(function (pair) {
         if (pair[0].id === id || pair[1].id === id) clashSlots[i] = true;
       });
@@ -162,91 +244,220 @@
       return '1回戦で同じ所属（' + p[0].club + '）の「' + p[0].name + '」と「' + p[1].name + '」が対戦します。';
     });
     messages($('bracketMessages'), [], warnings);
+    $('bracketArea').innerHTML = bracketSvg(d, { selectedSlot: selectedSlot, clashSlots: clashSlots });
+  }
 
-    $('bracketArea').innerHTML = window.TournamentRender.renderBracket(state, {
-      order: state.schedule.order,
-      rows: state.schedule.rows,
-      blank: printingBlank,
-      selectedSlot: selectedSlot,
-      clashSlots: clashSlots
+  function bracketSvg(d, opts) {
+    var p = planRowsOf(d);
+    return R.renderBracket({ title: divisionTitle(d), entries: d.entries, bracket: d.bracket }, {
+      nos: p ? p.nos : null,
+      rows: p ? p.rows : null,
+      blank: opts.blank,
+      selectedSlot: opts.selectedSlot,
+      clashSlots: opts.clashSlots
     });
+  }
+
+  // ---------- 試合進行表の表示 ----------
+
+  // 部門ごとの色（マスの左の線）
+  var DIVISION_COLORS = ['#2f6b4f', '#c0392b', '#2c5aa0', '#b9770e', '#7d3c98', '#117a8b', '#6e5a3c', '#a33a74'];
+
+  // 試合進行表の試合を、マス（'時間枠:コート'）ごとにまとめる
+  function planCells() {
+    var plan = state.schedule.plan;
+    var byKey = {};
+    L.eventMatches(state.divisions).forEach(function (it) { byKey[it.key] = it; });
+    var cells = {};
+    Object.keys(plan.matches).forEach(function (k) {
+      var r = plan.matches[k];
+      if (byKey[k]) cells[r.slot + ':' + r.court] = { key: k, row: r, it: byKey[k] };
+    });
+    return cells;
+  }
+
+  function matchCell(c, forPrint) {
+    var it = c.it;
+    var nos = {};
+    var prefix = it.div.id + ':';
+    Object.keys(state.schedule.plan.matches).forEach(function (k) {
+      if (k.indexOf(prefix) === 0) nos[k.slice(prefix.length)] = state.schedule.plan.matches[k].no;
+    });
+    function side(s) {
+      if (s.type === 'entry') {
+        var e = it.byId[s.entryId];
+        return '<div class="side">' + esc(e.name) + (e.club ? '<span class="club">' + esc(e.club) + '</span>' : '') + '</div>';
+      }
+      return '<div class="side ref">' + esc(L.sideLabel(s, it.byId, nos)) + '</div>';
+    }
+    var color = DIVISION_COLORS[it.divIndex % DIVISION_COLORS.length];
+    var ump = forPrint
+      ? '<span class="ump-val">' + esc(c.row.umpire) + '</span>'
+      : '<textarea rows="2" data-key="' + esc(c.key) + '" aria-label="第' + c.row.no + '試合の審判">' + esc(c.row.umpire) + '</textarea>';
+    return '<div class="match" style="border-left-color:' + color + '">' +
+      '<div class="cell-head"><span class="div-name">' + esc(divisionName(it.div)) + '</span>' +
+      '<span class="round">' + esc(L.matchName(it.m, it.rounds)) + '</span>' +
+      '<span class="no">第' + c.row.no + '試合</span></div>' +
+      side(it.m.sides[0]) + '<div class="vs">対</div>' + side(it.m.sides[1]) +
+      '<div class="ump"><span class="ump-label">審判</span>' + ump + '</div></div>';
+  }
+
+  // courtIdx: 表に入れるコートの番号の一覧。forPrint なら入力欄の代わりに文字で表示し、空きの行を付けない。
+  function gridHtml(courtIdx, forPrint) {
+    var plan = state.schedule.plan;
+    var cells = planCells();
+    var html = '<table class="grid"><thead><tr><th class="g-order">対戦順</th><th class="g-time">時刻</th>';
+    courtIdx.forEach(function (c) { html += '<th>コート' + esc(plan.courts[c]) + '</th>'; });
+    html += '</tr></thead><tbody>';
+    var rows = plan.slotTimes.length + (forPrint ? 0 : 1);
+    for (var t = 0; t < rows; t++) {
+      var extra = t >= plan.slotTimes.length;
+      html += '<tr><td class="g-order">' + (t + 1) + '</td><td class="g-time">';
+      if (forPrint) html += esc(plan.slotTimes[t]);
+      else if (!extra) html += '<input data-slot-time="' + t + '" value="' + esc(plan.slotTimes[t]) + '" aria-label="対戦順' + (t + 1) + 'の時刻">';
+      html += '</td>';
+      courtIdx.forEach(function (c) {
+        var id = t + ':' + c;
+        var cell = cells[id];
+        var cls = 'g-cell' + (cell ? '' : ' empty') + (selectedCell === id ? ' selected' : '');
+        html += '<td class="' + cls + '"' + (forPrint ? '' : ' data-cell="' + id + '"') + '>' + (cell ? matchCell(cell, forPrint) : '') + '</td>';
+      });
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    return html;
   }
 
   function renderSchedule() {
-    var area = $('scheduleArea');
-    if (!state.bracket || !hasSchedule()) {
-      area.innerHTML = '';
-      if (state.bracket && !$('scheduleMessages').innerHTML) {
-        messages($('scheduleMessages'), [], [], ['「日程を自動作成」を押すと、時刻・コート・審判が割り当てられます。']);
-      }
+    var plan = state.schedule.plan;
+    $('gridHelp').hidden = !plan;
+    if (!plan) {
+      $('scheduleArea').innerHTML = '';
       return;
     }
-    var built = L.buildMatches(state.bracket, state.schedule.order);
-    var byId = L.indexEntries(state.entries);
-    var byMatch = {};
-    built.matches.forEach(function (m) { byMatch[m.id] = m; });
+    $('scheduleArea').innerHTML = gridHtml(plan.courts.map(function (_, i) { return i; }), false);
+  }
 
-    function side(s) {
-      if (s.type === 'entry') {
-        var e = byId[s.entryId];
-        return '<span class="pair">' + esc(e.name) + '</span>' + (e.club ? '<span class="club">' + esc(e.club) + '</span>' : '');
-      }
-      return '<span class="pair winner">' + esc(L.sideLabel(s, byId, byMatch)) + '</span>';
+  // 試合進行表の注意（組み合わせの変更・並びの問題）を表示する。errors / warnings は自動作成のときのもの。
+  function showScheduleNotices(errors, warnings) {
+    var list = (warnings || []).slice();
+    if (!state.schedule.plan) {
+      messages($('scheduleMessages'), errors || [], list, ['「日程を自動作成」を押すと、全部門の試合に対戦順・時刻・コート・審判が割り当てられます。']);
+      return;
     }
-
-    var html = '<h2 class="print-only">' + esc(L.titleFor(state.title, '試合進行表')) + '</h2>';
-    html += '<table class="schedule"><thead><tr>' +
-      '<th class="c-no">試合</th><th class="c-round">回戦</th><th class="c-time">時刻</th><th class="c-court">コート</th>' +
-      '<th>対戦</th><th class="c-ump">審判</th><th class="c-score">結果</th></tr></thead><tbody>';
-    built.matches.forEach(function (m) {
-      var r = state.schedule.rows[m.id];
-      html += '<tr>' +
-        '<td class="c-no">第' + m.no + '試合</td>' +
-        '<td class="c-round">' + esc(L.roundName(m.round, built.rounds)) + '</td>' +
-        '<td class="c-time"><input data-match="' + m.id + '" data-field="time" value="' + esc(r.time) + '" aria-label="第' + m.no + '試合の時刻"></td>' +
-        '<td class="c-court"><input data-match="' + m.id + '" data-field="court" value="' + esc(r.court) + '" aria-label="第' + m.no + '試合のコート"></td>' +
-        '<td class="c-vs">' + side(m.sides[0]) + '<span class="vs">対</span>' + side(m.sides[1]) + '</td>' +
-        '<td class="c-ump"><input data-match="' + m.id + '" data-field="umpire" value="' + esc(r.umpire) + '" aria-label="第' + m.no + '試合の審判"></td>' +
-        '<td class="c-score"></td>' +
-        '</tr>';
-    });
-    html += '</tbody></table>';
-    area.innerHTML = html;
+    if (state.schedule.stale) {
+      list.push('組み合わせを変えたため、試合進行表の審判が合っていない場合があります。「日程を自動作成」を押すと試合進行表を作り直します。');
+    }
+    list = list.concat(L.checkSchedule(state.divisions, state.schedule.plan));
+    messages($('scheduleMessages'), errors || [], list);
   }
 
-  // ---------- 操作 ----------
+  // ---------- タブ ----------
 
-  function confirmDiscardBracket() {
-    if (!state.bracket) return true;
-    var what = hasSchedule() ? '今の組み合わせと試合進行表' : '今の組み合わせ';
-    return window.confirm(what + 'は消えます。よろしいですか？');
-  }
-
-  function clearSchedule() {
-    state.schedule.order = null;
-    state.schedule.rows = null;
-    state.schedule.stale = false;
-    messages($('scheduleMessages'), [], []);
-  }
-
-  function generate(entries) {
-    state.bracket = L.generateBracket(entries);
+  $('tabList').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-tab]');
+    if (!b) return;
+    state.tab = b.getAttribute('data-tab');
     selectedSlot = null;
-    clearSchedule();
+    selectedCell = null;
+    messages($('entryMessages'), []);
+    messages($('bracketMessages'), []);
+    messages($('printMessages'), []);
+    save();
+    renderTabs();
+    renderView();
+    if (state.tab === SCHEDULE_TAB) showScheduleNotices();
+  });
+
+  // ---------- 部門の編集 ----------
+
+  function renderDivisionRows() {
+    var only = state.divisions.length === 1;
+    var html = '';
+    state.divisions.forEach(function (d, i) {
+      html += '<div class="division-row" data-division="' + esc(d.id) + '">' +
+        '<input type="text" value="' + esc(d.name) + '" placeholder="男子低学年" aria-label="' + (i + 1) + '番目の部門の名前">' +
+        '<button type="button" data-remove-division="' + esc(d.id) + '"' + (only ? ' disabled' : '') + ' aria-label="' + esc(divisionName(d)) + 'を削除">削除</button>' +
+        '</div>';
+    });
+    $('divisionRows').innerHTML = html;
   }
 
-  $('titleInput').addEventListener('input', function () {
-    state.title = this.value;
+  function toggleEditor(open) {
+    $('divisionEditor').hidden = !open;
+    $('editDivisionsBtn').setAttribute('aria-expanded', String(open));
+    if (open) renderDivisionRows();
+  }
+
+  $('editDivisionsBtn').addEventListener('click', function () { toggleEditor($('divisionEditor').hidden); });
+  $('closeEditorBtn').addEventListener('click', function () { toggleEditor(false); });
+
+  $('divisionRows').addEventListener('input', function (ev) {
+    var row = ev.target.closest('[data-division]');
+    if (!row) return;
+    var id = row.getAttribute('data-division');
+    state.divisions.forEach(function (d) { if (d.id === id) d.name = ev.target.value; });
     save();
-    if (state.bracket) {
+    renderTabs();
+    if (current()) {
+      $('entriesDivisionName').textContent = divisionName(current());
+      $('bracketDivisionName').textContent = divisionName(current());
       renderBracket();
+    } else {
       renderSchedule();
     }
   });
 
+  $('divisionRows').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-remove-division]');
+    if (!b || state.divisions.length === 1) return;
+    var id = b.getAttribute('data-remove-division');
+    var d = state.divisions.filter(function (x) { return x.id === id; })[0];
+    var hasData = d.bracket || L.buildEntries(d.entryRows).entries.length;
+    var inPlan = planHasDivision(d);
+    if (hasData || inPlan) {
+      var what = '「' + divisionName(d) + '」の参加チームと組み合わせ' + (inPlan ? '、全部門の試合進行表' : '');
+      if (!window.confirm(what + 'は消えます。よろしいですか？')) return;
+    }
+    state.divisions = state.divisions.filter(function (x) { return x.id !== id; });
+    selectedSlot = null;
+    selectedCell = null;
+    if (inPlan) {
+      state.schedule.plan = null;
+      state.schedule.stale = false;
+      messages($('scheduleMessages'), []);
+    }
+    if (state.tab === id) state.tab = state.divisions[0].id;
+    save();
+    renderAll();
+  });
+
+  $('addDivisionBtn').addEventListener('click', function () {
+    if (state.divisions.length >= L.MAX_DIVISIONS) {
+      window.alert('部門は' + L.MAX_DIVISIONS + 'までです。');
+      return;
+    }
+    var d = newDivision(nextDivisionId(), '');
+    state.divisions.push(d);
+    state.tab = d.id;
+    selectedSlot = null;
+    save();
+    renderAll();
+    var inputs = $('divisionRows').querySelectorAll('input');
+    inputs[inputs.length - 1].focus();
+  });
+
+  // ---------- 大会名・参加チーム ----------
+
+  $('titleInput').addEventListener('input', function () {
+    state.title = this.value;
+    save();
+    if (current()) renderBracket();
+  });
+
   function renderEntryRows() {
     var html = '';
-    state.entryRows.forEach(function (r, i) {
+    current().entryRows.forEach(function (r, i) {
       var n = i + 1;
       html += '<div class="entry-row" data-row="' + i + '">' +
         '<input type="text" data-field="name" value="' + esc(r.name) + '" placeholder="' + (SAMPLE[i] ? SAMPLE[i][0] : '') + '" aria-label="' + n + '行目のチーム名">' +
@@ -261,7 +472,7 @@
   function entriesChanged() {
     updateEntryCount();
     save();
-    if (state.bracket) {
+    if (current().bracket) {
       messages($('entryMessages'), [], [], ['参加チームの変更は、「組み合わせを作成」を押すとトーナメント表に反映されます。']);
     }
   }
@@ -271,52 +482,74 @@
     var row = t.closest('[data-row]');
     var field = t.getAttribute('data-field');
     if (!row || !field) return;
-    var i = Number(row.getAttribute('data-row'));
-    if (field === 'seed') {
-      state.entryRows[i].seed = t.checked;
-    } else {
-      state.entryRows[i][field] = t.value;
-    }
+    var r = current().entryRows[Number(row.getAttribute('data-row'))];
+    if (field === 'seed') r.seed = t.checked;
+    else r[field] = t.value;
     entriesChanged();
   });
 
   $('entryRows').addEventListener('click', function (ev) {
     var b = ev.target.closest('[data-remove]');
     if (!b) return;
-    state.entryRows.splice(Number(b.getAttribute('data-remove')), 1);
-    if (!state.entryRows.length) state.entryRows.push(emptyRow());
+    var rows = current().entryRows;
+    rows.splice(Number(b.getAttribute('data-remove')), 1);
+    if (!rows.length) rows.push(emptyRow());
     renderEntryRows();
     entriesChanged();
   });
 
   $('addRowBtn').addEventListener('click', function () {
-    state.entryRows.push(emptyRow());
+    current().entryRows.push(emptyRow());
     renderEntryRows();
     entriesChanged();
     var inputs = $('entryRows').querySelectorAll('[data-field="name"]');
     inputs[inputs.length - 1].focus();
   });
 
+  // 今の部門の組み合わせを entries で作り直す。試合進行表が使えなくなるなら消す（確認してから）。
+  // 返り値: 作り直したら true
+  function regenerate(entries) {
+    var d = current();
+    var bracket = L.generateBracket(entries);
+    var after = state.divisions.map(function (x) {
+      return x === d ? { id: d.id, name: d.name, entries: entries, bracket: bracket } : x;
+    });
+    var plan = state.schedule.plan;
+    var dropPlan = plan && planHasDivision(d) && !L.validSchedule(plan, after);
+    if (d.bracket || dropPlan) {
+      var what = '「' + divisionName(d) + '」の今の組み合わせ' + (dropPlan ? 'と、全部門の試合進行表' : '');
+      if (!window.confirm(what + 'は消えます。よろしいですか？')) return false;
+    }
+    d.entries = entries;
+    d.bracket = bracket;
+    selectedSlot = null;
+    if (dropPlan) {
+      state.schedule.plan = null;
+      state.schedule.stale = false;
+      messages($('scheduleMessages'), []);
+    } else if (plan && planHasDivision(d)) {
+      state.schedule.stale = true;
+    }
+    return true;
+  }
+
   $('generateBtn').addEventListener('click', function () {
-    var r = L.buildEntries(state.entryRows);
+    var r = L.buildEntries(current().entryRows);
     if (r.errors.length) {
       messages($('entryMessages'), r.errors, r.warnings);
       return;
     }
-    if (!confirmDiscardBracket()) return;
-    state.entries = r.entries;
-    generate(r.entries);
+    if (!regenerate(r.entries)) return;
     messages($('entryMessages'), [], r.warnings);
     save();
-    renderAll();
+    renderBracket();
     $('bracketPanel').scrollIntoView({ behavior: 'smooth' });
   });
 
   $('rerollBtn').addEventListener('click', function () {
-    if (!confirmDiscardBracket()) return;
-    generate(state.entries);
+    if (!regenerate(current().entries)) return;
     save();
-    renderAll();
+    renderBracket();
   });
 
   // チーム名を2回押して入れ替える
@@ -332,35 +565,30 @@
     } else if (selectedSlot === slot) {
       selectedSlot = null;
     } else {
-      L.swapSlots(state.bracket, selectedSlot, slot);
+      var d = current();
+      L.swapSlots(d.bracket, selectedSlot, slot);
       selectedSlot = null;
-      if (hasSchedule()) {
-        state.schedule.stale = true;
-        showStale();
-      }
+      if (planHasDivision(d)) state.schedule.stale = true;
       save();
-      renderSchedule();
     }
     renderBracket();
   });
 
-  function showStale() {
-    if (state.schedule.stale) {
-      messages($('scheduleMessages'), [], ['組み合わせを入れ替えたため、試合進行表の審判が合っていない場合があります。「日程を自動作成」を押すと試合進行表を作り直します。']);
-    }
-  }
+  // ---------- 試合進行表 ----------
 
   ['courtsInput', 'startInput', 'durationInput'].forEach(function (id) {
     $(id).addEventListener('input', readSettings);
   });
   $('restInput').addEventListener('change', readSettings);
+  $('pairFromInput').addEventListener('change', readSettings);
 
   function readSettings() {
     state.schedule.settings = {
       courts: $('courtsInput').value,
       start: $('startInput').value,
       duration: Number($('durationInput').value),
-      avoidBackToBack: $('restInput').checked
+      avoidBackToBack: $('restInput').checked,
+      pairFrom: $('pairFromInput').value === 'sf' ? 'sf' : 'qf'
     };
     save();
   }
@@ -369,73 +597,137 @@
     readSettings();
     var st = state.schedule.settings;
     var courts = st.courts.split(/[,，、\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
-    if (hasSchedule() && !window.confirm('手で直した内容も含めて、今の試合進行表は消えます。作り直してよろしいですか？')) return;
+    if (state.schedule.plan && !window.confirm('手で直した内容も含めて、今の試合進行表は消えます。作り直してよろしいですか？')) return;
     var res;
     try {
-      res = L.scheduleMatches(state.bracket, state.entries, {
+      res = L.scheduleEvent(state.divisions, {
         courts: courts,
         start: st.start,
         duration: st.duration,
-        restSlots: st.avoidBackToBack ? 1 : 0
+        restSlots: st.avoidBackToBack ? 1 : 0,
+        pairFrom: st.pairFrom
       });
     } catch (e) {
       messages($('scheduleMessages'), [e.message]);
       return;
     }
-    state.schedule.order = res.order;
-    state.schedule.rows = res.rows;
+    state.schedule.plan = { courts: res.courts, slotTimes: res.slotTimes, matches: res.matches };
     state.schedule.stale = false;
-    messages($('scheduleMessages'), [], res.warnings);
+    selectedCell = null;
     save();
-    renderBracket();
+    renderSchedule();
+    showScheduleNotices([], res.warnings);
+  });
+
+  // マスを2回押して試合を入れ替える（空いたマスなら移す）
+  $('scheduleArea').addEventListener('click', function (ev) {
+    if (!state.schedule.plan || ev.target.closest('input, textarea')) return;
+    var td = ev.target.closest('[data-cell]');
+    if (!td) {
+      if (selectedCell !== null) { selectedCell = null; renderSchedule(); }
+      return;
+    }
+    var id = td.getAttribute('data-cell');
+    var cells = planCells();
+    if (selectedCell === null) {
+      if (cells[id]) selectedCell = id;
+    } else if (selectedCell === id) {
+      selectedCell = null;
+    } else {
+      moveCells(cells, selectedCell, id);
+      selectedCell = null;
+      save();
+      showScheduleNotices();
+    }
     renderSchedule();
   });
 
-  // 試合進行表の手直し
+  function moveCells(cells, from, to) {
+    var plan = state.schedule.plan;
+    var a = cells[from], b = cells[to];
+    var pf = from.split(':').map(Number), pt = to.split(':').map(Number);
+    if (a) { a.row.slot = pt[0]; a.row.court = pt[1]; }
+    if (b) { b.row.slot = pf[0]; b.row.court = pf[1]; }
+    // 空きの行に移したら時刻を足し、最後の行が空いたら消す
+    while (plan.slotTimes.length <= pt[0]) {
+      var last = L.parseTime(plan.slotTimes[plan.slotTimes.length - 1]);
+      var dur = Number(state.schedule.settings.duration);
+      plan.slotTimes.push(last !== null && dur > 0 ? L.formatTime(last + dur) : '');
+    }
+    var used = Object.keys(plan.matches).map(function (k) { return plan.matches[k].slot; });
+    var maxSlot = Math.max.apply(null, used);
+    plan.slotTimes.length = Math.max(maxSlot + 1, 1);
+  }
+
+  // 時刻と審判の手直し
   $('scheduleArea').addEventListener('input', function (ev) {
     var t = ev.target;
-    var id = t.getAttribute('data-match');
-    var field = t.getAttribute('data-field');
-    if (!id || !field || !state.schedule.rows[id]) return;
-    state.schedule.rows[id][field] = t.value;
+    var plan = state.schedule.plan;
+    if (!plan) return;
+    if (t.hasAttribute('data-slot-time')) {
+      plan.slotTimes[Number(t.getAttribute('data-slot-time'))] = t.value;
+    } else if (t.hasAttribute('data-key') && plan.matches[t.getAttribute('data-key')]) {
+      plan.matches[t.getAttribute('data-key')].umpire = t.value;
+    } else {
+      return;
+    }
     save();
-    renderBracket();
   });
 
   // ---------- 印刷 ----------
 
+  // ponytail: 試合進行表は1ページにコート4面ずつ並べる。対戦順が多いと1ページに収まらず、次のページに続く。
+  var COURTS_PER_PAGE = 4;
+
   document.querySelectorAll('[data-print]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var target = btn.getAttribute('data-print');
-      if (target !== 'bracket' && !hasSchedule()) {
-        messages($('scheduleMessages'), ['試合進行表がまだありません。「日程を自動作成」を押すと作成されます。']);
-        $('schedulePanel').scrollIntoView({ behavior: 'smooth' });
-        return;
+      var blank = $('blankInfoInput').checked;
+      var pages = [];
+      if (target === 'schedule') {
+        var plan = state.schedule.plan;
+        if (!plan) {
+          messages($('printMessages'), ['試合進行表がまだありません。「試合進行表」のタブで「日程を自動作成」を押すと作成されます。']);
+          return;
+        }
+        var title = L.titleFor(state.title, '試合進行表');
+        for (var c = 0; c < plan.courts.length; c += COURTS_PER_PAGE) {
+          var idx = [];
+          for (var i = c; i < Math.min(c + COURTS_PER_PAGE, plan.courts.length); i++) idx.push(i);
+          pages.push('<h2 class="print-title">' + esc(title) + '</h2>' + gridHtml(idx, true));
+        }
+      } else {
+        var list = target === 'division' ? [current()] : state.divisions;
+        list.forEach(function (d) {
+          if (d && d.bracket) pages.push(bracketSvg(d, { blank: blank }));
+        });
+        if (!pages.length) {
+          messages($('printMessages'), [target === 'division'
+            ? 'この部門の組み合わせがまだありません。「組み合わせを作成」を押すと作成されます。'
+            : '組み合わせを作成した部門がありません。']);
+          return;
+        }
       }
-      document.body.setAttribute('data-print', target);
-      selectedSlot = null;
-      printingBlank = $('blankInfoInput').checked;
-      renderBracket();
+      messages($('printMessages'), []);
+      $('printArea').innerHTML = pages.map(function (p) {
+        return '<div class="print-page print-' + (target === 'schedule' ? 'schedule' : 'bracket') + '">' + p + '</div>';
+      }).join('');
       window.print();
     });
   });
   window.addEventListener('afterprint', function () {
-    document.body.removeAttribute('data-print');
-    if (printingBlank) {
-      printingBlank = false;
-      renderBracket();
-    }
+    $('printArea').innerHTML = '';
   });
 
   // ---------- クリア ----------
 
   $('clearBtn').addEventListener('click', function () {
-    if (!window.confirm('大会名・参加チーム・トーナメント表・試合進行表など、入力した内容をすべて消して最初の状態に戻します。よろしいですか？')) return;
+    if (!window.confirm('大会名・部門・参加チーム・トーナメント表・試合進行表など、入力した内容をすべて消して最初の状態に戻します。よろしいですか？')) return;
     state = defaultState();
     selectedSlot = null;
-    messages($('entryMessages'), []);
-    messages($('bracketMessages'), []);
-    messages($('scheduleMessages'), []);
+    selectedCell = null;
+    ['entryMessages', 'bracketMessages', 'scheduleMessages', 'printMessages'].forEach(function (id) { messages($(id), []); });
+    toggleEditor(false);
     save();
     renderAll();
     window.scrollTo({ top: 0 });
@@ -475,19 +767,20 @@
         window.alert('ファイルを読み込めませんでした。' + (err ? '\n' + err : ''));
         return;
       }
-      if (state.bracket && !window.confirm('今の内容は消え、読み込んだファイルの内容に置き換わります。よろしいですか？')) return;
+      var hasData = state.divisions.some(function (d) { return d.bracket || L.buildEntries(d.entryRows).entries.length; });
+      if (hasData && !window.confirm('今の内容は消え、読み込んだファイルの内容に置き換わります。よろしいですか？')) return;
       state = next;
       selectedSlot = null;
-      messages($('entryMessages'), []);
-      messages($('scheduleMessages'), []);
+      selectedCell = null;
+      ['entryMessages', 'bracketMessages', 'scheduleMessages', 'printMessages'].forEach(function (id) { messages($(id), []); });
       save();
       renderAll();
-      showStale();
+      if (state.tab === SCHEDULE_TAB) showScheduleNotices();
     };
     reader.onerror = function () { window.alert('ファイルを読み込めませんでした。'); };
     reader.readAsText(file);
   });
 
   renderAll();
-  showStale();
+  if (state.tab === SCHEDULE_TAB) showScheduleNotices();
 })();
