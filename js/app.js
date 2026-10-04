@@ -28,6 +28,7 @@
 
   var state = load();
   var selectedSlot = null;
+  var printingBlank = false; // 印刷中だけ、トーナメント表の記入欄を空欄にする
   // 入力欄に薄く出す入力例
   var SAMPLE = [['山田・佐藤', '北高'], ['鈴木・田中', '南高'], ['高橋・伊藤', '東高']];
 
@@ -164,6 +165,8 @@
 
     $('bracketArea').innerHTML = window.TournamentRender.renderBracket(state, {
       order: state.schedule.order,
+      rows: state.schedule.rows,
+      blank: printingBlank,
       selectedSlot: selectedSlot,
       clashSlots: clashSlots
     });
@@ -398,6 +401,7 @@
     if (!id || !field || !state.schedule.rows[id]) return;
     state.schedule.rows[id][field] = t.value;
     save();
+    renderBracket();
   });
 
   // ---------- 印刷 ----------
@@ -412,11 +416,18 @@
       }
       document.body.setAttribute('data-print', target);
       selectedSlot = null;
+      printingBlank = $('blankInfoInput').checked;
       renderBracket();
       window.print();
     });
   });
-  window.addEventListener('afterprint', function () { document.body.removeAttribute('data-print'); });
+  window.addEventListener('afterprint', function () {
+    document.body.removeAttribute('data-print');
+    if (printingBlank) {
+      printingBlank = false;
+      renderBracket();
+    }
+  });
 
   // ---------- ファイル ----------
 

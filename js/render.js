@@ -4,13 +4,14 @@
 
   var L = root.TournamentLogic;
 
-  var ROW_H = 30;
-  var BOX_W = 210;
+  var ROW_H = 34;
+  var BOX_W = 190;
   var BOX_H = 22;
-  var COL_W = 42;
+  var COL_W = 88;
   var X0 = 10;
-  var CENTER_GAP = 120;
+  var CENTER_GAP = 2 * COL_W;
   var TITLE_H = 80;
+  var INFO_W = COL_W - 8; // 各試合の記入欄の幅
   var FONT = "'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, 'Noto Sans JP', sans-serif";
 
   function esc(s) {
@@ -32,10 +33,29 @@
     return '<text x="' + x + '" y="' + y + '" font-size="' + size + '"' + fit + (attrs || '') + '>' + esc(s) + '</text>';
   }
 
-  // state: { title, entries, bracket }, opts: { order, selectedSlot, clashSlots }
+  // 各試合の記入欄（線の上に審判、線の下に時間とコート）。blank なら空欄の見出しだけ。
+  // x は欄の左端、y は線の高さ。
+  function matchInfo(out, x, y, width, row) {
+    var u = row ? row.umpire : '';
+    var t = row ? row.time : '';
+    var c = row && row.court ? 'コート' + row.court : '';
+    out.push('<text x="' + x + '" y="' + (y - 4) + '" font-size="8" class="info-label">審判</text>');
+    if (u) out.push(fitText(x + 18, y - 4, u, 10, width - 18, ' class="info-val"'));
+    if (row) {
+      out.push(fitText(x, y + 11, t, 10, 30, ' class="info-val"'));
+      if (c) out.push(fitText(x + 34, y + 11, c, 10, width - 34, ' class="info-val"'));
+    } else {
+      out.push('<text x="' + x + '" y="' + (y + 11) + '" font-size="8" class="info-label">時間</text>');
+      out.push('<text x="' + (x + 34) + '" y="' + (y + 11) + '" font-size="8" class="info-label">コート</text>');
+    }
+  }
+
+  // state: { title, entries, bracket }, opts: { order, rows, blank, selectedSlot, clashSlots }
+  // rows: 試合進行表の { 試合id: { time, court, umpire } }。blank が true なら記入欄を空欄にする。
   function renderBracket(state, opts) {
     opts = opts || {};
     var bracket = state.bracket;
+    var rows = opts.blank ? {} : (opts.rows || {});
     var byId = L.indexEntries(state.entries);
     var built = L.buildMatches(bracket, opts.order);
     var R = built.rounds;
@@ -54,7 +74,7 @@
       rowOf[i] = rowsPerSide[side]++;
     });
     var maxRows = Math.max(rowsPerSide[0], rowsPerSide[1]);
-    var top = TITLE_H + 20;
+    var top = TITLE_H + 90; // 決勝の記入欄の分を空ける
     function slotY(i) {
       var side = i < half ? 0 : 1;
       return top + (maxRows - rowsPerSide[side]) / 2 * ROW_H + (rowOf[i] + 0.5) * ROW_H;
@@ -99,6 +119,7 @@
     // 各回戦の線（決勝の手前まで）
     out.push('<g class="lines">');
     var labels = [];
+    var infos = [];
     for (var r = 1; r <= R - 1; r++) {
       var X = X0 + BOX_W + r * COL_W;
       var count = size / Math.pow(2, r);
@@ -119,6 +140,7 @@
         var mid = (a.y + b.y) / 2;
         anchors['r' + r + 'k' + k] = { x: X, y: mid, side: side };
         labels.push({ x: ax(X - 4, side), y: mid + 4, anchor: side === 0 ? 'end' : 'start', no: node.no });
+        infos.push({ x: side === 0 ? X + 4 : totalW - X - COL_W + 4, y: mid, row: rows[node.id] });
       }
     }
 
@@ -131,9 +153,11 @@
     if (fa.y !== fb.y) out.push('<line x1="' + cx + '" y1="' + fa.y + '" x2="' + cx + '" y2="' + fb.y + '" stroke="#333"/>');
     out.push('</g>');
     var fy = Math.min(fa.y, fb.y);
-    out.push('<text x="' + cx + '" y="' + (fy - 26) + '" font-size="18" font-weight="bold" text-anchor="middle" class="final">決勝</text>');
-    out.push('<text x="' + cx + '" y="' + (fy - 8) + '" font-size="11" text-anchor="middle" class="match-no">第' + final.no + '試合</text>');
+    out.push('<text x="' + cx + '" y="' + (fy - 84) + '" font-size="18" font-weight="bold" text-anchor="middle" class="final">決勝</text>');
+    out.push('<text x="' + cx + '" y="' + (fy - 66) + '" font-size="11" text-anchor="middle" class="match-no">第' + final.no + '試合</text>');
+    infos.push({ x: cx - INFO_W / 2, y: fy - 42, row: rows[final.id] });
 
+    infos.forEach(function (f) { matchInfo(out, f.x, f.y, INFO_W, f.row); });
     labels.forEach(function (lb) {
       out.push('<text x="' + lb.x + '" y="' + lb.y + '" font-size="11" text-anchor="' + lb.anchor + '" class="match-no">' + lb.no + '</text>');
     });
