@@ -18,7 +18,7 @@
   }
 
   function defaultSettings() {
-    return { courts: '1, 2, 3, 4, 5, 6, 7, 8', start: '09:00', duration: 30, avoidBackToBack: true, pairFrom: 'qf' };
+    return { courts: '1, 2, 3, 4, 5, 6, 7, 8', start: '09:00', duration: 30, avoidBackToBack: true, pairFrom: 'qf', printStyle: 'compact' };
   }
 
   function defaultState() {
@@ -112,7 +112,8 @@
         start: typeof st.start === 'string' ? st.start : ds.start,
         duration: Number(st.duration) > 0 ? Number(st.duration) : ds.duration,
         avoidBackToBack: st.avoidBackToBack !== false,
-        pairFrom: st.pairFrom === 'sf' ? 'sf' : 'qf'
+        pairFrom: st.pairFrom === 'sf' ? 'sf' : 'qf',
+        printStyle: st.printStyle === 'compact' || st.printStyle === 'detail' ? st.printStyle : ds.printStyle
       };
       if (Array.isArray(s.divisions) && L.validSchedule(sc.plan, out.divisions)) {
         var plan = { courts: sc.plan.courts.slice(), slotTimes: sc.plan.slotTimes.slice(), matches: {} };
@@ -187,6 +188,7 @@
     $('durationInput').value = st.duration;
     $('pairFromInput').value = st.pairFrom;
     $('restInput').checked = st.avoidBackToBack;
+    $('printStyleInput').value = st.printStyle;
     renderTabs();
     renderView();
     if (!$('divisionEditor').hidden) renderDivisionRows();
@@ -254,7 +256,8 @@
       rows: p ? p.rows : null,
       blank: opts.blank,
       selectedSlot: opts.selectedSlot,
-      clashSlots: opts.clashSlots
+      clashSlots: opts.clashSlots,
+      numbers: L.drawNumbers(state.divisions)[d.id]
     });
   }
 
@@ -588,10 +591,16 @@
       start: $('startInput').value,
       duration: Number($('durationInput').value),
       avoidBackToBack: $('restInput').checked,
-      pairFrom: $('pairFromInput').value === 'sf' ? 'sf' : 'qf'
+      pairFrom: $('pairFromInput').value === 'sf' ? 'sf' : 'qf',
+      printStyle: $('printStyleInput').value === 'detail' ? 'detail' : 'compact'
     };
     save();
   }
+
+  $('printStyleInput').addEventListener('change', function () {
+    state.schedule.settings.printStyle = this.value === 'detail' ? 'detail' : 'compact';
+    save();
+  });
 
   $('scheduleBtn').addEventListener('click', function () {
     readSettings();
@@ -676,13 +685,76 @@
 
   // ---------- 印刷 ----------
 
-  // ponytail: 試合進行表は1ページにコート4面ずつ並べる。対戦順が多いと1ページに収まらず、次のページに続く。
+  // ponytail: 詳しい表は1ページにコート4面ずつ並べる。対戦順が多いと1ページに収まらず、次のページに続く。
   var COURTS_PER_PAGE = 4;
+  // ponytail: 番号の表は1つの表を15行までにする。時間枠が15を超えると表が分かれる。変えるときは ROWS_PER_BLOCK を直す（A4縦に収まる行数は CSS の行の高さと合わせる）。
+  var ROWS_PER_BLOCK = 15;
+  var TABLES_PER_PAGE = 2;
+
+  // 番号の表の1つの表。slots: 行にする時間枠の番号の一覧、courtIdx: コートの番号の一覧、grid: { '時間枠:コート': 試合 }
+  function compactTableHtml(plan, grid, slots, courtIdx) {
+    // コートが4面に満たない表も、1面あたりの幅は4面の表と同じにする（順の列8mm＋1面46.4mm）
+    var html = '<table class="compact" style="width:' + (8 + 46.4 * courtIdx.length).toFixed(1) + 'mm"><colgroup><col class="c-order">';
+    courtIdx.forEach(function () { html += '<col class="c-match"><col class="c-ump">'; });
+    html += '</colgroup><thead><tr><th rowspan="2" class="c-order">順</th>';
+    courtIdx.forEach(function (c) { html += '<th colspan="2">コート' + esc(plan.courts[c]) + '</th>'; });
+    html += '</tr><tr>';
+    courtIdx.forEach(function () { html += '<th class="c-match">対戦</th><th class="c-ump">審判</th>'; });
+    html += '</tr></thead><tbody>';
+    slots.forEach(function (t, i) {
+      html += '<tr><td class="c-order">' + (t + 1) + '</td>';
+      courtIdx.forEach(function (c) {
+        var cur = grid[t + ':' + c];
+        // そのコートで前にあった試合（空きの行や、前の表の行もさかのぼる）
+        var above = null;
+        for (var u = t - 1; u >= 0 && !above; u--) above = grid[u + ':' + c] || null;
+        var cls = cur && above && cur.divId !== above.divId ? ' div-change' : '';
+        function lines(a) { return a.map(esc).join('<br>'); }
+        html += '<td class="c-match' + cls + '">' + (cur ? lines(cur.match) : '') + '</td>' +
+          '<td class="c-ump' + cls + '">' + (cur ? lines(cur.umpire) : '') + '</td>';
+      });
+      html += '</tr>';
+    });
+    return html + '</tbody></table>';
+  }
+
+  // 番号の表のページ（HTML の配列）。行のかたまりが外側、コート4面のかたまりが内側の順に表を並べ、2つずつ1ページにする。
+  // コートが4面以下なら、1ページに1〜15行目と16〜30行目が上下に入る。
+  // 5面以上なら、行のかたまりごとにページを分ける（別の行のかたまりの表と同じページにしない）。
+  function compactPages(plan, title) {
+    var cs = L.compactSchedule(state.divisions, plan);
+    var grid = {};
+    Object.keys(cs).forEach(function (k) {
+      var r = plan.matches[k];
+      grid[r.slot + ':' + r.court] = cs[k];
+    });
+    var tables = [];
+    var pages = [];
+    function flush() {
+      for (var p = 0; p < tables.length; p += TABLES_PER_PAGE) {
+        pages.push('<h2 class="print-title">' + esc(title) + '</h2>' + tables.slice(p, p + TABLES_PER_PAGE).join(''));
+      }
+      tables = [];
+    }
+    for (var t0 = 0; t0 < plan.slotTimes.length; t0 += ROWS_PER_BLOCK) {
+      var slots = [];
+      for (var t = t0; t < Math.min(t0 + ROWS_PER_BLOCK, plan.slotTimes.length); t++) slots.push(t);
+      for (var c = 0; c < plan.courts.length; c += COURTS_PER_PAGE) {
+        var idx = [];
+        for (var i = c; i < Math.min(c + COURTS_PER_PAGE, plan.courts.length); i++) idx.push(i);
+        tables.push(compactTableHtml(plan, grid, slots, idx));
+      }
+      if (plan.courts.length > COURTS_PER_PAGE) flush();
+    }
+    flush();
+    return pages;
+  }
 
   document.querySelectorAll('[data-print]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var target = btn.getAttribute('data-print');
       var blank = $('blankInfoInput').checked;
+      var compact = state.schedule.settings.printStyle === 'compact';
       var pages = [];
       if (target === 'schedule') {
         var plan = state.schedule.plan;
@@ -691,10 +763,14 @@
           return;
         }
         var title = L.titleFor(state.title, '試合進行表');
-        for (var c = 0; c < plan.courts.length; c += COURTS_PER_PAGE) {
-          var idx = [];
-          for (var i = c; i < Math.min(c + COURTS_PER_PAGE, plan.courts.length); i++) idx.push(i);
-          pages.push('<h2 class="print-title">' + esc(title) + '</h2>' + gridHtml(idx, true));
+        if (compact) {
+          pages = compactPages(plan, title);
+        } else {
+          for (var c = 0; c < plan.courts.length; c += COURTS_PER_PAGE) {
+            var idx = [];
+            for (var i = c; i < Math.min(c + COURTS_PER_PAGE, plan.courts.length); i++) idx.push(i);
+            pages.push('<h2 class="print-title">' + esc(title) + '</h2>' + gridHtml(idx, true));
+          }
         }
       } else {
         var list = target === 'division' ? [current()] : state.divisions;
@@ -709,8 +785,11 @@
         }
       }
       messages($('printMessages'), []);
+      // 番号の表だけA4縦。名前付きページ（@page 名前）に対応していないブラウザもあるので、印刷のたびに向きを書き換える。
+      $('pageStyle').textContent = '@page { size: A4 ' + (target === 'schedule' && compact ? 'portrait' : 'landscape') + '; margin: 8mm; }';
       $('printArea').innerHTML = pages.map(function (p) {
-        return '<div class="print-page print-' + (target === 'schedule' ? 'schedule' : 'bracket') + '">' + p + '</div>';
+        var kind = target !== 'schedule' ? 'bracket' : compact ? 'compact' : 'schedule';
+        return '<div class="print-page print-' + kind + '">' + p + '</div>';
       }).join('');
       window.print();
     });

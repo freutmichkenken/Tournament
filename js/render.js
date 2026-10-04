@@ -9,6 +9,7 @@
   var BOX_H = 22;
   var COL_W = 88;
   var X0 = 10;
+  var NUM_W = 34; // チームの番号（3〜4桁）を枠の外に置くために足す余白
   var CENTER_GAP = 2 * COL_W;
   var TITLE_H = 80;
   var INFO_W = COL_W - 8; // 各試合の記入欄の幅
@@ -119,9 +120,11 @@
   }
 
   // div: { title, entries, bracket }（title は大会名と部門名）
-  // opts: { nos, rows, blank, selectedSlot, clashSlots }
+  // opts: { nos, rows, blank, selectedSlot, clashSlots, numbers }
   //   nos: { 試合id: 試合番号 }、rows: 試合進行表の { 試合id: { time, court, umpire } }。
   //   nos がなければ部門の中の仮の番号を使う。blank が true なら記入欄を空欄にする。
+  //   numbers: { チームid: チームの番号 }。あれば各チームの枠の外（左の山は左、右の山は右）に番号を書き、
+  //   その分だけ左右に余白を足す。なければ（番号のないチームも）番号は書かない。
   function renderBracket(div, opts) {
     opts = opts || {};
     var bracket = div.bracket;
@@ -133,9 +136,11 @@
     var noOf = {};
     built.matches.forEach(function (m) { noOf[m.id] = m.no; });
     var R = built.rounds;
+    var numbers = opts.numbers || null;
+    var x0 = X0 + (numbers ? NUM_W : 0);
     var size = bracket.size;
     var half = size / 2;
-    var halfW = X0 + BOX_W + (R - 1) * COL_W;
+    var halfW = x0 + BOX_W + (R - 1) * COL_W;
     var totalW = 2 * halfW + CENTER_GAP;
     var cx = totalW / 2;
 
@@ -176,7 +181,7 @@
       var e = byId[id];
       var side = i < half ? 0 : 1;
       var y = slotY(i);
-      var left = side === 0 ? X0 : totalW - X0 - BOX_W;
+      var left = side === 0 ? x0 : totalW - x0 - BOX_W;
       var cls = 'entry';
       if (opts.selectedSlot === i) cls += ' selected';
       if (opts.clashSlots && opts.clashSlots[i]) cls += ' clash';
@@ -187,7 +192,11 @@
       out.push(fitText(left + 6, y + 4.5, label, 13, BOX_W - 12 - (clubW ? clubW + 8 : 0), ' class="name"'));
       if (e.club) out.push(fitText(left + BOX_W - 6 - clubW, y + 4, e.club, 10, clubW, ' class="club"'));
       out.push('</g>');
-      anchors['L' + i] = { x: X0 + BOX_W, y: y, side: side };
+      if (numbers && numbers[id] != null) {
+        out.push('<text x="' + (side === 0 ? left - 6 : left + BOX_W + 6) + '" y="' + (y + 4.5) + '" font-size="12" text-anchor="' +
+          (side === 0 ? 'end' : 'start') + '" class="draw-no">' + esc(numbers[id]) + '</text>');
+      }
+      anchors['L' + i] = { x: x0 + BOX_W, y: y, side: side };
     });
 
     // 各回戦の線（決勝の手前まで）
@@ -195,7 +204,7 @@
     var labels = [];
     var infos = [];
     for (var r = 1; r <= R - 1; r++) {
-      var X = X0 + BOX_W + r * COL_W;
+      var X = x0 + BOX_W + r * COL_W;
       var count = size / Math.pow(2, r);
       for (var k = 0; k < count; k++) {
         var side = k < count / 2 ? 0 : 1;
