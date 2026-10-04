@@ -82,6 +82,12 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .seed-check { display: flex; align-items: center; gap: 4px; }
 .seed-check .seed-label { font-size: 13px; }
 .entry-row input[type="text"] { width: 100%; min-width: 0; }
+/* ponytail: 幅600px以下では、チーム名を1行目、所属・シード・削除を2行目に並べる */
+@media (max-width: 600px) {
+  .entry-head { display: none; }
+  .entry-row { grid-template-columns: 1fr auto auto; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  .entry-row input[data-field="name"] { grid-column: 1 / -1; }
+}
 
 .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
 
