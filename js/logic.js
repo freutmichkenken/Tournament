@@ -662,6 +662,156 @@
     return warnings;
   }
 
+  // ---------- 番号の表（試合進行表をチームの番号で書く形） ----------
+
+  // チームの番号。部門の順番×100＋トーナメント表の上からの順番（BYE は数えない）。
+  // MAX_ENTRIES が 99 以下なので、部門どうしで番号は重ならない。組み合わせのない部門も順番には数える。
+  // 返り値: { 部門id: { チームid: 番号 } }
+  function drawNumbers(divisions) {
+    var out = {};
+    divisions.forEach(function (d, di) {
+      if (!d.bracket) return;
+      var nums = out[d.id] = {};
+      var n = 0;
+      d.bracket.slots.forEach(function (id) {
+        if (id !== null) nums[id] = (di + 1) * 100 + (++n);
+      });
+    });
+    return out;
+  }
+
+  var COMPACT_STAGE = { third: '3位決定戦', place5: '5位決定戦', place7: '7位決定戦' };
+
+  // 試合進行表を番号で書いたときの、対戦欄と審判欄の文字（どちらも1行ずつの配列）。
+  // 対戦欄：本戦は山に入っているチームの最初と最後の番号（例「101 − 105」）。
+  //   決勝・3位決定戦・5位決定戦・7位決定戦は部門名と試合名の2行。5〜8位決定戦は「101-103 敗者」「104-105 敗者」の2行。
+  // 審判欄：試合進行表の審判の文字（scheduleEvent が作る形）を番号で書き直す。
+  //   同じコートの1つ前の試合の敗者は「敗者」、決勝・3位決定戦の勝者・敗者は「優勝者」「準優勝」「3位」「4位」。
+  //   手で書き換えるなどして読み取れない文字は、そのまま表示する。
+  // plan: 試合進行表 { matches: { key: { slot, court, no, umpire } } }
+  // 返り値: { 試合のkey: { divId, match: [行…], umpire: [行…] } }
+  function compactSchedule(divisions, plan) {
+    var nums = drawNumbers(divisions);
+    var items = eventMatches(divisions);
+    var byKey = {}, byNo = {};
+    items.forEach(function (it) {
+      byKey[it.key] = it;
+      var r = plan.matches[it.key];
+      if (r) byNo[r.no] = it;
+    });
+    // コートごとの1つ前の試合
+    var prevOnCourt = {};
+    var byCourt = {};
+    Object.keys(plan.matches).forEach(function (k) {
+      if (!byKey[k]) return;
+      var c = plan.matches[k].court;
+      (byCourt[c] = byCourt[c] || []).push(k);
+    });
+    Object.keys(byCourt).forEach(function (c) {
+      var ks = byCourt[c].sort(function (a, b) { return plan.matches[a].slot - plan.matches[b].slot; });
+      for (var i = 1; i < ks.length; i++) prevOnCourt[ks[i]] = ks[i - 1];
+    });
+
+    function divName(it) { return it.div.name.trim() || '名前なし'; }
+    function isFinal(it) { return it.m.stage === 'main' && it.m.round === it.rounds; }
+    function isPlain(it) { return it.m.stage === 'main' && !isFinal(it); }
+    function range(it) {
+      var ns = it.m.entriesBelow.map(function (id) { return nums[it.div.id][id]; });
+      return Math.min.apply(null, ns) + '-' + Math.max.apply(null, ns);
+    }
+    function sideMatch(it, s) { return byKey[matchKey(it.div.id, s.matchId)]; }
+    // 試合を指す短い名前（審判欄で使う）
+    function ref(it) {
+      if (isPlain(it)) return range(it);
+      if (isFinal(it)) return divName(it) + ' 決勝';
+      return divName(it) + ' ' + (COMPACT_STAGE[it.m.stage] || STAGE_NAMES[it.m.stage]);
+    }
+    // その試合の勝者（W）・敗者（L）
+    function resultLabel(it, kind) {
+      if (isFinal(it)) return divName(it) + (kind === 'W' ? ' 優勝者' : ' 準優勝');
+      if (it.m.stage === 'third') return divName(it) + (kind === 'W' ? ' 3位' : ' 4位');
+      return ref(it) + (kind === 'W' ? ' 勝者' : ' 敗者');
+    }
+
+    function matchLines(it) {
+      if (isPlain(it)) return [range(it).replace('-', ' − ')];
+      if (it.m.stage === 'place58') {
+        return it.m.sides.map(function (s) { return resultLabel(sideMatch(it, s), 'L'); });
+      }
+      return [divName(it), isFinal(it) ? '決勝戦' : COMPACT_STAGE[it.m.stage]];
+    }
+
+    // 審判の文字を、相手（{ kind: 'E', id } か { kind: 'W' | 'L', it }）の一覧にする。読み取れなければ null。
+    function parseUmpire(text, it) {
+      var pair = /^第(\d+)試合の両チームから1人ずつ$/.exec(text);
+      if (pair) {
+        var o = byNo[pair[1]];
+        return o && o.div === it.div ? [{ kind: 'W', it: o }, { kind: 'L', it: o }] : null;
+      }
+      var two = /^第(\d+)・(\d+)試合の(敗者|勝者)から1人ずつ$/.exec(text);
+      var parts;
+      if (two) {
+        var k = two[3] === '勝者' ? '勝者' : '敗者';
+        parts = ['第' + two[1] + '試合の' + k, '第' + two[2] + '試合の' + k];
+      } else if (/から1人ずつ$/.test(text)) {
+        parts = text.replace(/から1人ずつ$/, '').split('、');
+        if (parts.length < 2) return null;
+      } else {
+        parts = [text];
+      }
+      var out = [];
+      for (var i = 0; i < parts.length; i++) {
+        var p = parts[i];
+        var r = /^第(\d+)試合の(敗者|勝者)$/.exec(p);
+        if (r) {
+          var src = byNo[r[1]];
+          if (!src || src.div !== it.div) return null;
+          out.push({ kind: r[2] === '勝者' ? 'W' : 'L', it: src });
+          continue;
+        }
+        var hit = it.div.entries.filter(function (e) { return e.name === p; });
+        if (hit.length !== 1 || nums[it.div.id][hit[0].id] === undefined) return null;
+        out.push({ kind: 'E', id: hit[0].id });
+      }
+      return out;
+    }
+
+    function umpireLines(it, text) {
+      text = String(text || '').trim();
+      if (!text) return [];
+      var srcs = parseUmpire(text, it);
+      if (!srcs) return [text];
+      function one(s) { return s.kind === 'E' ? String(nums[it.div.id][s.id]) : resultLabel(s.it, s.kind); }
+      if (srcs.length === 1) {
+        var s = srcs[0];
+        if (s.kind === 'L' && isPlain(s.it) && prevOnCourt[it.key] === s.it.key) return ['敗者'];
+        return [one(s)];
+      }
+      // 同じ試合の両チーム
+      if (srcs.length === 2 && srcs[0].it && srcs[0].it === srcs[1].it) {
+        var o = srcs[0].it;
+        return [isPlain(o) ? range(o) : ref(o) + 'の2チーム', '1人ずつ'];
+      }
+      // 番号の小さい順に並べる。本戦の試合の敗者どうし（または勝者どうし）は「101-103・104-105」「敗者 1人ずつ」にまとめる
+      function low(x) { return x.kind === 'E' ? nums[it.div.id][x.id] : Math.min.apply(null, x.it.m.entriesBelow.map(function (id) { return nums[it.div.id][id]; })); }
+      srcs.sort(function (a, b) { return low(a) - low(b); });
+      var kind = srcs[0].kind;
+      var same = srcs.every(function (x) { return x.it && isPlain(x.it) && x.kind === kind; });
+      if (same && kind !== 'E') {
+        return [srcs.map(function (x) { return range(x.it); }).join('・'), (kind === 'W' ? '勝者' : '敗者') + ' 1人ずつ'];
+      }
+      return [srcs.map(one).join('・'), '1人ずつ'];
+    }
+
+    var out = {};
+    items.forEach(function (it) {
+      var r = plan.matches[it.key];
+      if (!r) return;
+      out[it.key] = { divId: it.div.id, match: matchLines(it), umpire: umpireLines(it, r.umpire) };
+    });
+    return out;
+  }
+
   // ---------- 表示用 ----------
 
   function indexEntries(entries) {
@@ -793,7 +943,9 @@
     sideLabel: sideLabel,
     titleFor: titleFor,
     validateState: validateState,
-    validSchedule: validSchedule
+    validSchedule: validSchedule,
+    drawNumbers: drawNumbers,
+    compactSchedule: compactSchedule
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

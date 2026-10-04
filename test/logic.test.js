@@ -381,3 +381,73 @@ test('sideLabel は勝者・敗者を試合番号で表す', () => {
   assert.strictEqual(L.sideLabel({ type: 'winner', matchId: 'r1m0' }, byId, { r1m0: 12 }), '第12試合の勝者');
   assert.strictEqual(L.sideLabel({ type: 'loser', matchId: 'r1m0' }, byId, { r1m0: 12 }), '第12試合の敗者');
 });
+
+test('drawNumbers は部門の順番×100＋上からの順番で、BYE を数えない', () => {
+  const ds = makeDivisions([5, 3, 1, 4], 2);
+  const nums = L.drawNumbers(ds);
+  const order = (d) => d.bracket.slots.filter((id) => id !== null).map((id) => nums[d.id][id]);
+  assert.deepStrictEqual(order(ds[0]), [101, 102, 103, 104, 105]);
+  assert.deepStrictEqual(order(ds[1]), [201, 202, 203]);
+  assert.strictEqual(nums.d3, undefined); // 組み合わせのない部門は飛ばすが、順番には数える
+  assert.deepStrictEqual(order(ds[3]), [401, 402, 403, 404]);
+});
+
+test('compactSchedule は対戦欄を番号の範囲と試合名で書く', () => {
+  const ds = makeDivisions([8], 1);
+  const plan = L.scheduleEvent(ds, { courts: ['1', '2'], start: '09:00', duration: 30, restSlots: 1, pairFrom: 'qf' });
+  const c = L.compactSchedule(ds, plan);
+  assert.strictEqual(Object.keys(c).length, Object.keys(plan.matches).length);
+  const nums = L.drawNumbers(ds).d1;
+  const pos = (id) => nums[id];
+  const { matches } = L.divisionMatches(ds[0].bracket);
+  matches.forEach((m) => {
+    const lines = c['d1:' + m.id].match;
+    if (m.stage === 'main' && m.round < 3) {
+      const ns = m.entriesBelow.map(pos);
+      assert.deepStrictEqual(lines, [Math.min(...ns) + ' − ' + Math.max(...ns)]);
+    }
+  });
+  assert.deepStrictEqual(c['d1:r3m0'].match, ['部門1', '決勝戦']);
+  assert.deepStrictEqual(c['d1:third'].match, ['部門1', '3位決定戦']);
+  assert.deepStrictEqual(c['d1:p5'].match, ['部門1', '5位決定戦']);
+  assert.deepStrictEqual(c['d1:p7'].match, ['部門1', '7位決定戦']);
+  assert.deepStrictEqual(c['d1:p58m0'].match, ['101-102 敗者', '103-104 敗者']);
+  assert.deepStrictEqual(c['d1:p58m1'].match, ['105-106 敗者', '107-108 敗者']);
+});
+
+test('compactSchedule は審判の文字を番号で書き直し、読み取れない文字はそのまま残す', () => {
+  const ds = makeDivisions([8], 1);
+  const plan = L.scheduleEvent(ds, { courts: ['1', '2'], start: '09:00', duration: 30, restSlots: 1, pairFrom: 'qf' });
+  const row = (id) => plan.matches['d1:' + id];
+  // r1m0 を r2m0 と同じコートの直前に入れ替え、r1m1 は別のコートに入れ替える（画面でマスを入れ替えるのと同じ）
+  const r2 = row('r2m0');
+  const move = (r, slot, court) => {
+    const other = Object.values(plan.matches).find((x) => x.slot === slot && x.court === court);
+    if (other && other !== r) { other.slot = r.slot; other.court = r.court; }
+    r.slot = slot;
+    r.court = court;
+  };
+  move(row('r1m0'), r2.slot - 1, r2.court);
+  if (row('r1m1').court === r2.court) move(row('r1m1'), row('r1m1').slot, 1 - r2.court);
+  const name = (n) => ds[0].entries.find((e) => L.drawNumbers(ds).d1[e.id] === n).name;
+  const no = (id) => row(id).no;
+  const cases = [
+    ['第' + no('r1m0') + '試合の敗者', ['敗者']],
+    ['第' + no('r1m1') + '試合の敗者', ['103-104 敗者']],
+    [name(105), ['105']],
+    [name(107) + '、' + name(106) + 'から1人ずつ', ['106・107', '1人ずつ']],
+    ['第' + no('r1m1') + '・' + no('r1m0') + '試合の敗者から1人ずつ', ['101-102・103-104', '敗者 1人ずつ']],
+    ['第' + no('r1m1') + '試合の両チームから1人ずつ', ['103-104', '1人ずつ']],
+    ['第' + no('r3m0') + '試合の両チームから1人ずつ', ['部門1 決勝の2チーム', '1人ずつ']],
+    ['第' + no('r3m0') + '試合の勝者', ['部門1 優勝者']],
+    ['第' + no('third') + '試合の敗者', ['部門1 4位']],
+    ['第' + no('r3m0') + '試合の敗者、' + name(101) + 'から1人ずつ', ['部門1 準優勝・101', '1人ずつ']],
+    ['山田先生', ['山田先生']],
+    ['第999試合の敗者', ['第999試合の敗者']],
+    ['  ', []]
+  ];
+  cases.forEach(([text, want]) => {
+    r2.umpire = text;
+    assert.deepStrictEqual(L.compactSchedule(ds, plan)['d1:r2m0'].umpire, want, text);
+  });
+});
