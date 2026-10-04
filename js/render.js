@@ -45,7 +45,7 @@
     var totalW = 2 * halfW + CENTER_GAP;
     var cx = totalW / 2;
 
-    // 左右それぞれ、実在するペアだけを詰めて縦に並べる
+    // 左右それぞれ、実在するチームだけを詰めて縦に並べる
     var rowOf = {};
     var rowsPerSide = [0, 0];
     bracket.slots.forEach(function (id, i) {
@@ -75,7 +75,7 @@
     out.push(fitText(cx, 47, title, 24, titleW - 30, ' text-anchor="middle" font-weight="bold" fill="#111"'));
     out.push('</g>');
 
-    // ペア名の枠
+    // チーム名の枠
     var anchors = {}; // 'L0' = 枠0、'r1k3' = 1回戦の3番目の結節点
     bracket.slots.forEach(function (id, i) {
       if (id === null) return;

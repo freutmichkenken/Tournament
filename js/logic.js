@@ -7,43 +7,28 @@
 
   // ---------- 入力の読み取り ----------
 
-  // 1行に「ペア名, 所属, シード」。区切りはタブ・半角カンマ・全角カンマ。
-  function parseEntries(text) {
+  // 入力欄の行 [{name, club, seed}] からチームを作る。seed が true のチームがシード（第1シードのみ）。
+  function buildEntries(rows) {
     var entries = [];
     var errors = [];
     var warnings = [];
-    String(text || '').split(/\r?\n/).forEach(function (line, i) {
-      if (!line.trim()) return;
-      var cols = line.split(/\t|,|，/).map(function (s) { return s.trim(); });
-      var name = cols[0] || '';
-      var club = cols[1] || '';
-      var seedStr = (cols[2] || '').normalize('NFKC');
+    (rows || []).forEach(function (row, i) {
+      var name = String(row.name || '').trim();
+      var club = String(row.club || '').trim();
+      if (!name && !club && !row.seed) return; // 空の行は無視
       if (!name) {
-        errors.push((i + 1) + '行目：ペア名がありません。');
+        errors.push((i + 1) + '行目：チーム名がありません。');
         return;
       }
-      var seed = null;
-      if (seedStr) {
-        if (!/^\d+$/.test(seedStr) || Number(seedStr) < 1) {
-          errors.push((i + 1) + '行目：シードは1以上の数字で入力してください。「' + seedStr + '」は使えません。');
-        } else {
-          seed = Number(seedStr);
-        }
-      }
-      entries.push({ id: 'e' + (entries.length + 1), name: name, club: club, seed: seed });
+      entries.push({ id: 'e' + (entries.length + 1), name: name, club: club, seed: row.seed ? 1 : null });
     });
 
     var n = entries.length;
-    if (n < 2) errors.push('参加ペアは2組以上必要です。');
-    if (n > MAX_ENTRIES) errors.push('参加ペアは' + MAX_ENTRIES + '組までです（現在' + n + '組）。');
+    if (n < 2) errors.push('参加チームは2チーム以上必要です。');
+    if (n > MAX_ENTRIES) errors.push('参加チームは' + MAX_ENTRIES + 'チームまでです（現在' + n + 'チーム）。');
 
-    var seen = Object.create(null);
-    entries.forEach(function (e) {
-      if (e.seed === null) return;
-      if (e.seed > n) errors.push('「' + e.name + '」のシード' + e.seed + 'が参加ペア数（' + n + '）を超えています。');
-      if (seen[e.seed]) errors.push('シード' + e.seed + 'が「' + seen[e.seed] + '」と「' + e.name + '」で重複しています。');
-      seen[e.seed] = e.name;
-    });
+    var seeded = entries.filter(function (e) { return e.seed !== null; });
+    if (seeded.length > 1) errors.push('シードにできるのは1チームだけです。');
 
     var names = Object.create(null);
     entries.forEach(function (e) {
@@ -52,6 +37,22 @@
     });
 
     return { entries: entries, errors: errors, warnings: warnings };
+  }
+
+  // 「チーム名, 所属, シード」を1行ずつ書いたテキストを入力行に直す（旧形式の保存データ・テスト用）。
+  // 区切りはタブ・半角カンマ・全角カンマ。シードは1だけをシードとみなす。
+  function rowsFromText(text) {
+    var rows = [];
+    String(text || '').split(/\r?\n/).forEach(function (line) {
+      if (!line.trim()) return;
+      var cols = line.split(/\t|,|，/).map(function (s) { return s.trim(); });
+      rows.push({ name: cols[0] || '', club: cols[1] || '', seed: (cols[2] || '').normalize('NFKC') === '1' });
+    });
+    return rows;
+  }
+
+  function parseEntries(text) {
+    return buildEntries(rowsFromText(text));
   }
 
   // ---------- 組み合わせ ----------
@@ -77,7 +78,7 @@
     return order.slice(0, size / 2).concat(order.slice(size / 2).reverse());
   }
 
-  // 枠 i と枠 j のペアが勝ち上がった場合に対戦する回戦（1 = 1回戦）
+  // 枠 i と枠 j のチームが勝ち上がった場合に対戦する回戦（1 = 1回戦）
   function meetRound(i, j) {
     var x = i ^ j;
     var r = 0;
@@ -124,7 +125,7 @@
   }
 
   // 組み合わせを作る。シードは標準位置に固定し、BYE は上位シードの相手枠に置く。
-  // シードなしのペアは、同じ所属が早い回戦で当たらないよう入れ替えを繰り返して配置する。
+  // シードなしのチームは、同じ所属が早い回戦で当たらないよう入れ替えを繰り返して配置する。
   function generateBracket(entries, rng) {
     rng = rng || Math.random;
     var n = entries.length;
@@ -146,7 +147,7 @@
 
     var best = null;
     var bestCost = Infinity;
-    // ponytail: 入れ替えの総当たりなので、参加ペアが数百組になると遅い。その場合は焼きなまし法などに変える。
+    // ponytail: 入れ替えの総当たりなので、参加チームが数百組になると遅い。その場合は焼きなまし法などに変える。
     var restarts = n <= 32 ? 30 : 10;
     for (var r = 0; r < restarts; r++) {
       var slots = base.slice();
@@ -187,7 +188,7 @@
     return clashes;
   }
 
-  // 実在するペアどうしの入れ替えだけを許す（BYE の位置は変えない）
+  // 実在するチームどうしの入れ替えだけを許す（BYE の位置は変えない）
   function swapSlots(bracket, i, j) {
     if (bracket.slots[i] === null || bracket.slots[j] === null || i === j) return false;
     swap(bracket.slots, i, j);
@@ -263,7 +264,7 @@
 
   // 時間枠ごとにコートへ試合を割り当て、審判を決める。
   // opts: { courts: ['1', '2'], start: '09:00', duration: 30, restSlots: 1 }
-  //   restSlots: 同じペアの試合の間に空ける時間枠の数（0なら連戦あり）
+  //   restSlots: 同じチームの試合の間に空ける時間枠の数（0なら連戦あり）
   // 試合番号は時刻・コート順に振り直す（印刷した表で番号順に試合が進むように）。
   // 返り値: { order: [試合id], rows: { 試合id: { time, court, umpire } }, warnings: [] }
   function scheduleMatches(bracket, entries, opts) {
@@ -298,7 +299,7 @@
       if (t > 10000) throw new Error('日程を組めませんでした。');
     }
 
-    // 各ペアが最初に試合をする時間枠（審判を頼めるのはそれより前）
+    // 各チームが最初に試合をする時間枠（審判を頼めるのはそれより前）
     var firstPlay = {};
     matches.forEach(function (m) {
       m.sides.forEach(function (s) {
@@ -332,7 +333,7 @@
       var matchClubs = clubsOf(m.entriesBelow);
       var umpire = '';
 
-      // 1. すでに終わった試合の負けたペア（同じ所属が少なく、直前に終わったものを優先）
+      // 1. すでに終わった試合の負けたチーム（同じ所属が少なく、直前に終わったものを優先）
       var losers = matches.filter(function (x) { return slotOf[x.id] < slot && !loserUsed[x.id]; })
         .map(function (x) { return { m: x, ov: overlap(clubsOf(x.entriesBelow), matchClubs) }; })
         .sort(function (a, b) { return a.ov - b.ov || slotOf[b.m.id] - slotOf[a.m.id] || a.m.no - b.m.no; });
@@ -340,7 +341,7 @@
         loserUsed[losers[0].m.id] = true;
         umpire = '第' + losers[0].m.no + '試合の負け';
       } else {
-        // 2. その時点でまだ試合をしていないペア（審判の回数が少なく、同じ所属でなく、試合が遅いものを優先）
+        // 2. その時点でまだ試合をしていないチーム（審判の回数が少なく、同じ所属でなく、試合が遅いものを優先）
         var key = 's' + slot;
         umpAt[key] = umpAt[key] || {};
         var free = entries.filter(function (e) { return firstPlay[e.id] > slot && !umpAt[key][e.id]; })
@@ -396,14 +397,14 @@
   // 読み込んだ JSON が使える形かを確かめる。問題があればエラー文を返す。
   function validateState(s) {
     if (!s || typeof s !== 'object') return 'ファイルの形式が正しくありません。';
-    if (!Array.isArray(s.entries)) return '参加ペアのデータがありません。';
+    if (!Array.isArray(s.entries)) return '参加チームのデータがありません。';
     var ids = Object.create(null);
     for (var i = 0; i < s.entries.length; i++) {
       var e = s.entries[i];
       if (!e || typeof e.id !== 'string' || typeof e.name !== 'string' || typeof e.club !== 'string') {
-        return '参加ペアのデータが正しくありません。';
+        return '参加チームのデータが正しくありません。';
       }
-      if (ids[e.id]) return '参加ペアのデータが重複しています。';
+      if (ids[e.id]) return '参加チームのデータが重複しています。';
       ids[e.id] = true;
     }
     if (s.bracket) {
@@ -430,6 +431,8 @@
   var api = {
     MAX_ENTRIES: MAX_ENTRIES,
     parseEntries: parseEntries,
+    buildEntries: buildEntries,
+    rowsFromText: rowsFromText,
     bracketSize: bracketSize,
     seedOrder: seedOrder,
     meetRound: meetRound,
