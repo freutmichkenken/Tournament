@@ -429,6 +429,20 @@
     }
   });
 
+  // ---------- クリア ----------
+
+  $('clearBtn').addEventListener('click', function () {
+    if (!window.confirm('大会名・参加チーム・トーナメント表・試合進行表など、入力した内容をすべて消して最初の状態に戻します。よろしいですか？')) return;
+    state = defaultState();
+    selectedSlot = null;
+    messages($('entryMessages'), []);
+    messages($('bracketMessages'), []);
+    messages($('scheduleMessages'), []);
+    save();
+    renderAll();
+    window.scrollTo({ top: 0 });
+  });
+
   // ---------- ファイル ----------
 
   $('exportBtn').addEventListener('click', function () {
