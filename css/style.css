@@ -99,13 +99,15 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 
 /* トーナメント表 */
 #bracketArea { margin-top: 12px; overflow-x: auto; }
-.bracket-svg { display: block; width: 100%; min-width: 760px; height: auto; }
+.bracket-svg { display: block; width: 100%; min-width: 1000px; height: auto; }
 .bracket-svg .lines line { stroke: #333; stroke-width: 1.2; }
 .bracket-svg .entry rect { fill: #fff; stroke: #333; stroke-width: 1; }
 .bracket-svg .entry .name { fill: #111; }
 .bracket-svg .entry .club { fill: #666; }
 .bracket-svg .match-no { fill: #444; }
 .bracket-svg .final { fill: #111; }
+.bracket-svg .info-label { fill: #777; }
+.bracket-svg .info-val { fill: #111; }
 @media screen {
   .bracket-svg .entry { cursor: pointer; }
   .bracket-svg .entry:hover rect { fill: #eef5f0; }
