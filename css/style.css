@@ -1,0 +1,161 @@
+:root {
+  --bg: #f4f5f2;
+  --panel: #ffffff;
+  --ink: #1d2320;
+  --muted: #5d6762;
+  --line: #d5d9d4;
+  --accent: #2f6b4f;
+  --accent-ink: #ffffff;
+  --warn-bg: #fff4d6;
+  --warn-ink: #6b4b00;
+  --error-bg: #fde4e1;
+  --error-ink: #8a1f12;
+  --info-bg: #e5f1ea;
+  --info-ink: #24513c;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, 'Noto Sans JP', sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.app-header h1 { margin: 0; font-size: 20px; }
+.file-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+main { max-width: 1200px; margin: 0 auto; padding: 16px; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.panel h2 { margin: 0 0 8px; font-size: 17px; }
+.panel-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+
+.help { margin: 0 0 10px; color: var(--muted); font-size: 14px; }
+.muted { color: var(--muted); }
+
+input[type="text"], input[type="time"], input[type="number"], textarea {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+}
+.wide { width: 100%; }
+textarea { width: 100%; resize: vertical; font-size: 14px; }
+
+button, .button-like {
+  font: inherit;
+  font-size: 14px;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+button:hover, .button-like:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: bold; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+
+.notice { margin: 8px 0 0; padding: 8px 12px; border-radius: 6px; font-size: 14px; }
+.notice.warn { background: var(--warn-bg); color: var(--warn-ink); }
+.notice.error { background: var(--error-bg); color: var(--error-ink); }
+.notice.info { background: var(--info-bg); color: var(--info-ink); }
+#storageNotice { margin: 12px 16px 0; }
+
+/* トーナメント表 */
+#bracketArea { margin-top: 12px; overflow-x: auto; }
+.bracket-svg { display: block; width: 100%; min-width: 760px; height: auto; }
+.bracket-svg .lines line { stroke: #333; stroke-width: 1.2; }
+.bracket-svg .entry rect { fill: #fff; stroke: #333; stroke-width: 1; }
+.bracket-svg .entry .name { fill: #111; }
+.bracket-svg .entry .club { fill: #666; }
+.bracket-svg .match-no { fill: #444; }
+.bracket-svg .final { fill: #111; }
+@media screen {
+  .bracket-svg .entry { cursor: pointer; }
+  .bracket-svg .entry:hover rect { fill: #eef5f0; }
+  .bracket-svg .entry.selected rect { fill: #d4ead9; stroke: var(--accent); stroke-width: 2.5; }
+  .bracket-svg .entry.clash rect { stroke: #c0392b; stroke-width: 2; }
+}
+
+/* 試合進行表 */
+.schedule-settings { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; }
+.schedule-settings label { display: flex; flex-direction: column; font-size: 14px; color: var(--muted); }
+.schedule-settings label.check { flex-direction: row; align-items: center; gap: 6px; color: var(--ink); }
+.schedule-settings input[type="number"] { width: 80px; }
+.with-unit { color: var(--ink); }
+
+#scheduleArea { margin-top: 12px; overflow-x: auto; }
+table.schedule { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.schedule th, table.schedule td { border: 1px solid #999; padding: 4px 6px; vertical-align: middle; }
+table.schedule th { background: #eef0ec; font-weight: bold; white-space: nowrap; }
+table.schedule td input {
+  width: 100%;
+  font: inherit;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+table.schedule td input:hover, table.schedule td input:focus { border-color: var(--line); background: #fff; }
+.c-no, .c-round { white-space: nowrap; }
+.c-time { width: 80px; }
+.c-court { width: 70px; }
+.c-ump { width: 22%; }
+.c-score { width: 12%; }
+.c-vs .pair { font-weight: bold; }
+.c-vs .pair.winner { font-weight: normal; color: #444; }
+.c-vs .club { font-size: 12px; color: var(--muted); margin-left: 4px; }
+.c-vs .club::before { content: '（'; }
+.c-vs .club::after { content: '）'; }
+.c-vs .vs { margin: 0 8px; color: var(--muted); }
+
+.print-only { display: none; }
+
+@media (max-width: 600px) {
+  .app-header h1 { font-size: 17px; }
+  table.schedule { min-width: 640px; }
+}
+
+/* 印刷 */
+@page { size: A4 landscape; margin: 8mm; }
+@media print {
+  body { background: #fff; font-size: 11pt; }
+  .no-print, .app-header { display: none !important; }
+  main { max-width: none; padding: 0; }
+  .panel { border: none; padding: 0; margin: 0; }
+  .print-only { display: block; font-size: 15pt; margin: 0 0 6px; }
+  #bracketArea, #scheduleArea { overflow: visible; margin: 0; }
+  .bracket-svg { min-width: 0; max-height: 190mm; }
+  table.schedule { font-size: 10pt; }
+  table.schedule tr { break-inside: avoid; }
+  table.schedule thead { display: table-header-group; }
+  table.schedule td input { border: none; padding: 0; color: #000; }
+
+  body[data-print="bracket"] #schedulePanel { display: none; }
+  body[data-print="schedule"] #bracketPanel { display: none; }
+  #schedulePanel { break-before: page; }
+}

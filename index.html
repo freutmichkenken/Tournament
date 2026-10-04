@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>トーナメント表メーカー</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header no-print">
+    <h1>トーナメント表メーカー</h1>
+    <div class="file-actions">
+      <button type="button" id="exportBtn">ファイルに保存</button>
+      <label class="button-like">ファイルから読み込む<input type="file" id="importInput" accept=".json,application/json" hidden></label>
+    </div>
+  </header>
+
+  <p id="storageNotice" class="notice warn no-print" hidden></p>
+
+  <main>
+    <section class="panel no-print">
+      <h2>1. 大会名</h2>
+      <input type="text" id="titleInput" class="wide" placeholder="〇〇杯">
+    </section>
+
+    <section class="panel no-print">
+      <h2>2. 参加ペア</h2>
+      <p class="help">1行に1ペアずつ「ペア名, 所属, シード」の順で入力します。シードはなくてもかまいません。Excel からそのまま貼り付けることもできます。</p>
+      <textarea id="entriesInput" rows="12" placeholder="山田・佐藤, 北高, 1&#10;鈴木・田中, 南高&#10;高橋・伊藤, 東高"></textarea>
+      <div class="actions">
+        <button type="button" id="generateBtn" class="primary">組み合わせを作成</button>
+        <span id="entryCount" class="muted"></span>
+      </div>
+      <div id="entryMessages"></div>
+    </section>
+
+    <section class="panel" id="bracketPanel" hidden>
+      <div class="panel-head no-print">
+        <h2>3. トーナメント表</h2>
+        <div class="actions">
+          <button type="button" id="rerollBtn">組み合わせを作り直す</button>
+        </div>
+      </div>
+      <p class="help no-print">ペア名を押してから別のペア名を押すと、2つのペアの位置が入れ替わります。</p>
+      <div id="bracketMessages" class="no-print"></div>
+      <div id="bracketArea" class="print-bracket"></div>
+    </section>
+
+    <section class="panel" id="schedulePanel" hidden>
+      <h2 class="no-print">4. 試合進行表</h2>
+      <div class="schedule-settings no-print">
+        <label>コート名<input type="text" id="courtsInput" placeholder="1, 2, 3"></label>
+        <label>開始時刻<input type="time" id="startInput"></label>
+        <label>1試合の目安時間<span class="with-unit"><input type="number" id="durationInput" min="1" max="600"> 分</span></label>
+        <label class="check"><input type="checkbox" id="restInput"> 同じペアが2枠続けて試合をしない</label>
+      </div>
+      <p class="help no-print">コート名はカンマで区切ります。審判は、前に終わった試合の負けたペアから割り当てます。負けたペアがいない時間は、BYE のペアや試合がまだ先のペアから割り当てます。</p>
+      <div class="actions no-print">
+        <button type="button" id="scheduleBtn" class="primary">日程を自動作成</button>
+      </div>
+      <div id="scheduleMessages" class="no-print"></div>
+      <div id="scheduleArea" class="print-schedule"></div>
+    </section>
+
+    <section class="panel no-print" id="printPanel" hidden>
+      <h2>5. 印刷</h2>
+      <p class="help">A4横で印刷します。</p>
+      <div class="actions">
+        <button type="button" data-print="bracket">トーナメント表を印刷</button>
+        <button type="button" data-print="schedule">試合進行表を印刷</button>
+        <button type="button" data-print="both">両方を印刷</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/logic.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
