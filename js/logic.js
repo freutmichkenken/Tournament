@@ -358,7 +358,7 @@
     if (!(duration > 0)) throw new Error('1試合の目安時間は1分以上で入力してください。');
 
     var items = eventMatches(divisions);
-    if (!items.length) throw new Error('試合がありません。各部門で「組み合わせを作成」を押すと、その部門の試合が入ります。');
+    if (!items.length) throw new Error('試合がありません。各部門で「組み合わせを作成」を押すと、その部門の試合が追加されます。');
     var byKey = {};
     items.forEach(function (it) { byKey[it.key] = it; });
     function refKey(it, matchId) { return matchKey(it.div.id, matchId); }
@@ -430,7 +430,7 @@
       });
       // 同じ時間枠に同じ部門の試合が入っていて、審判を出せるチームが足りない試合は、次の時間枠に回す
       // （その試合が終われば敗者が審判を出せる）。同じ部門の試合が入っていなければ、待っても審判は増えないので回さない。
-      // 2つの時間枠続けて回した試合は、審判がいなくても入れる。
+      // 通算2回回した試合は、審判がいなくても入れる。
       var chosen = [];
       ready.forEach(function (it) {
         if (chosen.length >= courts.length) return;
@@ -652,12 +652,12 @@
       prerequisites(it.m).forEach(function (id) {
         var p = schedule.matches[matchKey(it.div.id, id)];
         if (p && p.slot >= r.slot) {
-          warnings.push('第' + r.no + '試合が、先に終わる必要のある第' + p.no + '試合と同じか前の対戦順になっています。');
+          warnings.push('第' + r.no + '試合が、先に終わる必要のある第' + p.no + '試合と同じか、それより前の対戦順になっています。');
         }
       });
     });
     missing.forEach(function (d) {
-      warnings.push('「' + (d.name || '名前なし') + '」の試合が試合進行表に入っていません。「日程を自動作成」を押すと入ります。');
+      warnings.push('「' + (d.name || '名前なし') + '」の試合が試合進行表に含まれていません。「日程を自動作成」を押すと追加されます。');
     });
     return warnings;
   }

@@ -62,7 +62,7 @@
             <button type="button" id="rerollBtn">組み合わせを作り直す</button>
           </div>
         </div>
-        <p class="help">チーム名を押してから別のチーム名を押すと、2つのチームの位置が入れ替わります。3位決定戦と5〜8位決定戦は、表の下に表示されます。</p>
+        <p class="help">チーム名を押してから別のチーム名を押すと、2つのチームの位置が入れ替わります。3位決定戦などの順位決定戦は、表の下に表示されます。</p>
         <div id="bracketMessages"></div>
         <div id="bracketArea"></div>
       </section>
@@ -75,7 +75,7 @@
           <label>コート名<input type="text" id="courtsInput" placeholder="1, 2, 3, 4, 5, 6, 7, 8"></label>
           <label>開始時刻<input type="time" id="startInput"></label>
           <label>1試合の目安時間<span class="with-unit"><input type="number" id="durationInput" min="1" max="600"> 分</span></label>
-          <label>負けた2チームから1人ずつ審判を出す回戦
+          <label>負けた2チームから1人ずつ審判を割り当てる回戦
             <select id="pairFromInput">
               <option value="qf">準々決勝から</option>
               <option value="sf">準決勝から</option>
@@ -83,12 +83,12 @@
           </label>
           <label class="check"><input type="checkbox" id="restInput"> 同じチームが2枠続けて試合をしない</label>
         </div>
-        <p class="help">コート名はカンマで区切ります。全部門の試合を、空いたコートに対戦順に入れます。審判は同じ部門から出します。最初は試合がまだ先のチーム、そのあとは前に終わった試合の敗者です。準々決勝（または準決勝）からは負けた2チームから1人ずつ、決勝と3位決定戦は準々決勝の敗者から1人ずつ、5〜8位決定戦は決勝・3位決定戦に出たチームから1人ずつです。</p>
+        <p class="help">コート名はカンマで区切ります。全部門の試合を、空いたコートに対戦順に入れます。審判は同じ部門のチームから割り当てます。</p>
         <div class="actions">
           <button type="button" id="scheduleBtn" class="primary">日程を自動作成</button>
         </div>
         <div id="scheduleMessages"></div>
-        <p class="help" id="gridHelp" hidden>試合のマスを押してから別のマスを押すと、2つの試合の位置が入れ替わります（空いたマスにも移せます）。試合番号は変わりません。時刻と審判は直接書き換えられます。</p>
+        <p class="help" id="gridHelp" hidden>試合のマスを押してから別のマスを押すと、2つの試合の位置が入れ替わります。空いたマスに移すこともできます。試合番号は変わりません。時刻と審判は直接書き換えられます。</p>
         <div id="scheduleArea"></div>
       </section>
     </div>

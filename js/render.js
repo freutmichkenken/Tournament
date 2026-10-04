@@ -100,7 +100,7 @@
       info(byStage.place7[0], s7.x + 4, s7.y);
 
       var x58 = X0 + BOX_W + COL_W + INFO_W + 40;
-      heading(x58, y0 + 10, '5〜8位決定戦・5位決定戦');
+      heading(x58, y0 + 10, '5〜8位決定戦と5位決定戦');
       var a = pair(x58, top, byStage.place58[0]);
       var b = pair(x58, top + 2 * ROW_H, byStage.place58[1]);
       info(byStage.place58[0], a.x + 4, a.y);

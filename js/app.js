@@ -434,7 +434,7 @@
 
   $('addDivisionBtn').addEventListener('click', function () {
     if (state.divisions.length >= L.MAX_DIVISIONS) {
-      window.alert('部門は' + L.MAX_DIVISIONS + 'までです。');
+      window.alert('部門は' + L.MAX_DIVISIONS + 'まで追加できます。');
       return;
     }
     var d = newDivision(nextDivisionId(), '');
@@ -704,7 +704,7 @@
         if (!pages.length) {
           messages($('printMessages'), [target === 'division'
             ? 'この部門の組み合わせがまだありません。「組み合わせを作成」を押すと作成されます。'
-            : '組み合わせを作成した部門がありません。']);
+            : '組み合わせを作成した部門がありません。各部門で「組み合わせを作成」を押すと作成されます。']);
           return;
         }
       }
