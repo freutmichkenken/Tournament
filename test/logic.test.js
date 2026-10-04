@@ -30,13 +30,13 @@ test('seedOrder は標準のシード配置になる', () => {
   assert.deepStrictEqual(L.seedOrder(2), [1, 2]);
 });
 
-test('parseEntries はタブ・カンマ区切りとシードを読み取る', () => {
-  const r = L.parseEntries('山田・佐藤\tA高\t１\n\n鈴木・田中，B高\n高橋・伊藤,C高,2');
+test('parseEntries はタブ・カンマ区切りと第1シードを読み取る', () => {
+  const r = L.parseEntries('山田・佐藤\tA高\t１\n\n鈴木・田中，B高\n高橋・伊藤,C高');
   assert.deepStrictEqual(r.errors, []);
   assert.strictEqual(r.entries.length, 3);
   assert.deepStrictEqual(r.entries[0], { id: 'e1', name: '山田・佐藤', club: 'A高', seed: 1 });
   assert.strictEqual(r.entries[1].club, 'B高');
-  assert.strictEqual(r.entries[2].seed, 2);
+  assert.strictEqual(r.entries[2].seed, null);
 });
 
 test('Object の組み込み名と同じペア名・所属でも誤判定しない', () => {
@@ -47,11 +47,13 @@ test('Object の組み込み名と同じペア名・所属でも誤判定しな�
   assert.strictEqual(L.validateState({ entries: r.entries, bracket: b }), null);
 });
 
-test('parseEntries は不正なシードと重複シードをエラーにする', () => {
-  assert.ok(L.parseEntries('a,x,1\nb,y,1').errors.length > 0);
-  assert.ok(L.parseEntries('a,x,5\nb,y').errors.length > 0);
-  assert.ok(L.parseEntries('a,x,abc\nb,y').errors.length > 0);
-  assert.ok(L.parseEntries('a,x').errors.length > 0);
+test('buildEntries はシードのチェックを読み取り、複数シードをエラーにする', () => {
+  const ok = L.buildEntries([{ name: 'a', club: 'x', seed: true }, { name: 'b', club: 'y', seed: false }, { name: '', club: '', seed: false }]);
+  assert.deepStrictEqual(ok.errors, []);
+  assert.deepStrictEqual(ok.entries.map((e) => e.seed), [1, null]);
+  assert.ok(L.buildEntries([{ name: 'a', seed: true }, { name: 'b', seed: true }]).errors.length > 0);
+  assert.ok(L.buildEntries([{ name: '', club: 'x' }, { name: 'b' }, { name: 'c' }]).errors.length > 0);
+  assert.ok(L.buildEntries([{ name: 'a' }]).errors.length > 0);
 });
 
 test('20組なら32枠・BYE12で、BYEどうしは当たらない', () => {

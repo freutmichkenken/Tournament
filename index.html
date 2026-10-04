@@ -24,9 +24,13 @@
     </section>
 
     <section class="panel no-print">
-      <h2>2. 参加ペア</h2>
-      <p class="help">1行に1ペアずつ「ペア名, 所属, シード」の順で入力します。シードはなくてもかまいません。Excel からそのまま貼り付けることもできます。</p>
-      <textarea id="entriesInput" rows="12" placeholder="山田・佐藤, 北高, 1&#10;鈴木・田中, 南高&#10;高橋・伊藤, 東高"></textarea>
+      <h2>2. 参加チーム</h2>
+      <p class="help">チーム名・所属を入力します。シードにするチームには、シードにチェックを入れます（シードは1チームだけです）。</p>
+      <div class="entry-head" aria-hidden="true"><span>チーム名</span><span>所属</span><span>シード</span><span></span></div>
+      <div id="entryRows"></div>
+      <div class="actions">
+        <button type="button" id="addRowBtn">チームを追加</button>
+      </div>
       <div class="actions">
         <button type="button" id="generateBtn" class="primary">組み合わせを作成</button>
         <span id="entryCount" class="muted"></span>
@@ -41,7 +45,7 @@
           <button type="button" id="rerollBtn">組み合わせを作り直す</button>
         </div>
       </div>
-      <p class="help no-print">ペア名を押してから別のペア名を押すと、2つのペアの位置が入れ替わります。</p>
+      <p class="help no-print">チーム名を押してから別のチーム名を押すと、2つのチームの位置が入れ替わります。</p>
       <div id="bracketMessages" class="no-print"></div>
       <div id="bracketArea" class="print-bracket"></div>
     </section>
@@ -52,9 +56,9 @@
         <label>コート名<input type="text" id="courtsInput" placeholder="1, 2, 3"></label>
         <label>開始時刻<input type="time" id="startInput"></label>
         <label>1試合の目安時間<span class="with-unit"><input type="number" id="durationInput" min="1" max="600"> 分</span></label>
-        <label class="check"><input type="checkbox" id="restInput"> 同じペアが2枠続けて試合をしない</label>
+        <label class="check"><input type="checkbox" id="restInput"> 同じチームが2枠続けて試合をしない</label>
       </div>
-      <p class="help no-print">コート名はカンマで区切ります。審判は、前に終わった試合の負けたペアから割り当てます。負けたペアがいない時間は、BYE のペアや試合がまだ先のペアから割り当てます。</p>
+      <p class="help no-print">コート名はカンマで区切ります。審判は、前に終わった試合の負けたチームから割り当てます。負けたチームがいない時間は、BYE のチームや試合がまだ先のペアから割り当てます。</p>
       <div class="actions no-print">
         <button type="button" id="scheduleBtn" class="primary">日程を自動作成</button>
       </div>

@@ -8,11 +8,13 @@
 
   var $ = function (id) { return document.getElementById(id); };
 
+  function emptyRow() { return { name: '', club: '', seed: false }; }
+
   function defaultState() {
     return {
       version: 1,
       title: '〇〇杯',
-      entriesText: '',
+      entryRows: [emptyRow(), emptyRow(), emptyRow()],
       entries: [],
       bracket: null,
       schedule: {
@@ -26,6 +28,8 @@
 
   var state = load();
   var selectedSlot = null;
+  // 入力欄に薄く出す入力例
+  var SAMPLE = [['山田・佐藤', '北高'], ['鈴木・田中', '南高'], ['高橋・伊藤', '東高']];
 
   // ---------- 保存 ----------
 
@@ -50,6 +54,21 @@
     }
   }
 
+  // 保存データから入力行を取り出す。旧形式（entriesText）の保存データも読める。
+  function rowsFrom(s) {
+    var rows;
+    if (Array.isArray(s.entryRows)) {
+      rows = s.entryRows.filter(function (r) { return r && typeof r === 'object'; }).map(function (r) {
+        return { name: String(r.name || ''), club: String(r.club || ''), seed: r.seed === true };
+      });
+    } else if (typeof s.entriesText === 'string') {
+      rows = L.rowsFromText(s.entriesText);
+    } else {
+      rows = [];
+    }
+    return rows.length ? rows : [emptyRow(), emptyRow(), emptyRow()];
+  }
+
   // 保存データを確かめ、足りない項目を補う。使えないデータなら null。
   function normalize(s) {
     if (L.validateState(s)) return null;
@@ -57,7 +76,7 @@
     var out = {
       version: 1,
       title: typeof s.title === 'string' ? s.title : d.title,
-      entriesText: typeof s.entriesText === 'string' ? s.entriesText : '',
+      entryRows: rowsFrom(s),
       entries: s.entries.map(function (e) {
         return { id: e.id, name: e.name, club: e.club, seed: typeof e.seed === 'number' ? e.seed : null };
       }),
@@ -108,7 +127,7 @@
 
   function renderAll() {
     $('titleInput').value = state.title;
-    $('entriesInput').value = state.entriesText;
+    renderEntryRows();
     var st = state.schedule.settings;
     $('courtsInput').value = st.courts;
     $('startInput').value = st.start;
@@ -120,8 +139,8 @@
   }
 
   function updateEntryCount() {
-    var r = L.parseEntries($('entriesInput').value);
-    $('entryCount').textContent = r.entries.length ? r.entries.length + '組' : '';
+    var n = L.buildEntries(state.entryRows).entries.length;
+    $('entryCount').textContent = n ? n + 'チーム' : '';
   }
 
   function renderBracket() {
@@ -222,17 +241,63 @@
     }
   });
 
-  $('entriesInput').addEventListener('input', function () {
-    state.entriesText = this.value;
+  function renderEntryRows() {
+    var html = '';
+    state.entryRows.forEach(function (r, i) {
+      var n = i + 1;
+      html += '<div class="entry-row" data-row="' + i + '">' +
+        '<input type="text" data-field="name" value="' + esc(r.name) + '" placeholder="' + (SAMPLE[i] ? SAMPLE[i][0] : '') + '" aria-label="' + n + '行目のチーム名">' +
+        '<input type="text" data-field="club" value="' + esc(r.club) + '" placeholder="' + (SAMPLE[i] ? SAMPLE[i][1] : '') + '" aria-label="' + n + '行目の所属">' +
+        '<label class="seed-check"><input type="checkbox" data-field="seed"' + (r.seed ? ' checked' : '') + ' aria-label="' + n + '行目をシードにする"><span class="seed-label">シード</span></label>' +
+        '<button type="button" data-remove="' + i + '" aria-label="' + n + '行目を削除">削除</button>' +
+        '</div>';
+    });
+    $('entryRows').innerHTML = html;
+  }
+
+  function entriesChanged() {
     updateEntryCount();
     save();
     if (state.bracket) {
-      messages($('entryMessages'), [], [], ['参加ペアの変更は、「組み合わせを作成」を押すとトーナメント表に反映されます。']);
+      messages($('entryMessages'), [], [], ['参加チームの変更は、「組み合わせを作成」を押すとトーナメント表に反映されます。']);
     }
+  }
+
+  $('entryRows').addEventListener('input', function (ev) {
+    var t = ev.target;
+    var row = t.closest('[data-row]');
+    var field = t.getAttribute('data-field');
+    if (!row || !field) return;
+    var i = Number(row.getAttribute('data-row'));
+    if (field === 'seed') {
+      // シードは1チームだけ。別のチームにチェックを入れたら、前のチェックは外す。
+      state.entryRows.forEach(function (r, j) { r.seed = j === i && t.checked; });
+      renderEntryRows();
+    } else {
+      state.entryRows[i][field] = t.value;
+    }
+    entriesChanged();
+  });
+
+  $('entryRows').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-remove]');
+    if (!b) return;
+    state.entryRows.splice(Number(b.getAttribute('data-remove')), 1);
+    if (!state.entryRows.length) state.entryRows.push(emptyRow());
+    renderEntryRows();
+    entriesChanged();
+  });
+
+  $('addRowBtn').addEventListener('click', function () {
+    state.entryRows.push(emptyRow());
+    renderEntryRows();
+    entriesChanged();
+    var inputs = $('entryRows').querySelectorAll('[data-field="name"]');
+    inputs[inputs.length - 1].focus();
   });
 
   $('generateBtn').addEventListener('click', function () {
-    var r = L.parseEntries($('entriesInput').value);
+    var r = L.buildEntries(state.entryRows);
     if (r.errors.length) {
       messages($('entryMessages'), r.errors, r.warnings);
       return;
@@ -253,7 +318,7 @@
     renderAll();
   });
 
-  // ペア名を2回押して入れ替える
+  // チーム名を2回押して入れ替える
   $('bracketArea').addEventListener('click', function (ev) {
     var g = ev.target.closest('[data-slot]');
     if (!g) {
@@ -387,7 +452,7 @@
         window.alert('ファイルを読み込めませんでした。' + (err ? '\n' + err : ''));
         return;
       }
-      if ((state.bracket || state.entriesText) && !window.confirm('今の内容は消え、読み込んだファイルの内容に置き換わります。よろしいですか？')) return;
+      if (state.bracket && !window.confirm('今の内容は消え、読み込んだファイルの内容に置き換わります。よろしいですか？')) return;
       state = next;
       selectedSlot = null;
       messages($('entryMessages'), []);

@@ -77,6 +77,12 @@ button, .button-like {
 button:hover, .button-like:hover { border-color: var(--accent); }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: bold; }
 
+.entry-head, .entry-row { display: grid; grid-template-columns: 1fr 1fr 5.5em 4em; gap: 6px; align-items: center; margin-bottom: 6px; }
+.entry-head { color: var(--muted); font-size: 13px; }
+.seed-check { display: flex; align-items: center; gap: 4px; }
+.seed-check .seed-label { font-size: 13px; }
+.entry-row input[type="text"] { width: 100%; min-width: 0; }
+
 .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
 
 .notice { margin: 8px 0 0; padding: 8px 12px; border-radius: 6px; font-size: 14px; }
