@@ -1,0 +1,1132 @@
+{
+  "version": 2,
+  "title": "ダミー大会",
+  "tab": "d1",
+  "divisions": [
+    {
+      "id": "d1",
+      "name": "男子低学年",
+      "entryRows": [
+        {
+          "name": "山田・田中",
+          "club": "北高テニスクラブ",
+          "seed": false
+        },
+        {
+          "name": "佐藤・吉田",
+          "club": "港ジュニア",
+          "seed": false
+        },
+        {
+          "name": "鈴木・清水",
+          "club": "中央TC",
+          "seed": false
+        },
+        {
+          "name": "田中・藤田",
+          "club": "西テニス教室",
+          "seed": false
+        },
+        {
+          "name": "高橋・坂本",
+          "club": "東スポーツ",
+          "seed": false
+        }
+      ],
+      "entries": [
+        {
+          "id": "e1",
+          "name": "山田・田中",
+          "club": "北高テニスクラブ",
+          "seed": null
+        },
+        {
+          "id": "e2",
+          "name": "佐藤・吉田",
+          "club": "港ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e3",
+          "name": "鈴木・清水",
+          "club": "中央TC",
+          "seed": null
+        },
+        {
+          "id": "e4",
+          "name": "田中・藤田",
+          "club": "西テニス教室",
+          "seed": null
+        },
+        {
+          "id": "e5",
+          "name": "高橋・坂本",
+          "club": "東スポーツ",
+          "seed": null
+        }
+      ],
+      "bracket": {
+        "size": 8,
+        "slots": [
+          "e5",
+          null,
+          "e3",
+          "e1",
+          null,
+          "e4",
+          null,
+          "e2"
+        ]
+      }
+    },
+    {
+      "id": "d2",
+      "name": "男子中学年",
+      "entryRows": [
+        {
+          "name": "伊藤・三浦",
+          "club": "東スポーツ",
+          "seed": true
+        },
+        {
+          "name": "渡辺・野口",
+          "club": "南ジュニア",
+          "seed": true
+        },
+        {
+          "name": "中村・上田",
+          "club": "北高テニスクラブ",
+          "seed": false
+        },
+        {
+          "name": "小林・宮本",
+          "club": "港ジュニア",
+          "seed": false
+        },
+        {
+          "name": "加藤・鈴木",
+          "club": "中央TC",
+          "seed": false
+        },
+        {
+          "name": "吉田・加藤",
+          "club": "西テニス教室",
+          "seed": false
+        },
+        {
+          "name": "山本・斎藤",
+          "club": "東スポーツ",
+          "seed": false
+        },
+        {
+          "name": "松本・前田",
+          "club": "南ジュニア",
+          "seed": false
+        }
+      ],
+      "entries": [
+        {
+          "id": "e1",
+          "name": "伊藤・三浦",
+          "club": "東スポーツ",
+          "seed": 1
+        },
+        {
+          "id": "e2",
+          "name": "渡辺・野口",
+          "club": "南ジュニア",
+          "seed": 2
+        },
+        {
+          "id": "e3",
+          "name": "中村・上田",
+          "club": "北高テニスクラブ",
+          "seed": null
+        },
+        {
+          "id": "e4",
+          "name": "小林・宮本",
+          "club": "港ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e5",
+          "name": "加藤・鈴木",
+          "club": "中央TC",
+          "seed": null
+        },
+        {
+          "id": "e6",
+          "name": "吉田・加藤",
+          "club": "西テニス教室",
+          "seed": null
+        },
+        {
+          "id": "e7",
+          "name": "山本・斎藤",
+          "club": "東スポーツ",
+          "seed": null
+        },
+        {
+          "id": "e8",
+          "name": "松本・前田",
+          "club": "南ジュニア",
+          "seed": null
+        }
+      ],
+      "bracket": {
+        "size": 8,
+        "slots": [
+          "e1",
+          "e8",
+          "e6",
+          "e3",
+          "e5",
+          "e4",
+          "e7",
+          "e2"
+        ]
+      }
+    },
+    {
+      "id": "d3",
+      "name": "男子高学年",
+      "entryRows": [
+        {
+          "name": "井上・石井",
+          "club": "南ジュニア",
+          "seed": true
+        },
+        {
+          "name": "木村・太田",
+          "club": "北高テニスクラブ",
+          "seed": true
+        },
+        {
+          "name": "林・中野",
+          "club": "港ジュニア",
+          "seed": false
+        },
+        {
+          "name": "斎藤・石田",
+          "club": "中央TC",
+          "seed": false
+        },
+        {
+          "name": "清水・宮崎",
+          "club": "西テニス教室",
+          "seed": false
+        },
+        {
+          "name": "山口・佐藤",
+          "club": "東スポーツ",
+          "seed": false
+        },
+        {
+          "name": "池田・小林",
+          "club": "南ジュニア",
+          "seed": false
+        },
+        {
+          "name": "橋本・林",
+          "club": "北高テニスクラブ",
+          "seed": false
+        },
+        {
+          "name": "阿部・石川",
+          "club": "港ジュニア",
+          "seed": false
+        },
+        {
+          "name": "石川・近藤",
+          "club": "中央TC",
+          "seed": false
+        },
+        {
+          "name": "前田・福田",
+          "club": "西テニス教室",
+          "seed": false
+        }
+      ],
+      "entries": [
+        {
+          "id": "e1",
+          "name": "井上・石井",
+          "club": "南ジュニア",
+          "seed": 1
+        },
+        {
+          "id": "e2",
+          "name": "木村・太田",
+          "club": "北高テニスクラブ",
+          "seed": 2
+        },
+        {
+          "id": "e3",
+          "name": "林・中野",
+          "club": "港ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e4",
+          "name": "斎藤・石田",
+          "club": "中央TC",
+          "seed": null
+        },
+        {
+          "id": "e5",
+          "name": "清水・宮崎",
+          "club": "西テニス教室",
+          "seed": null
+        },
+        {
+          "id": "e6",
+          "name": "山口・佐藤",
+          "club": "東スポーツ",
+          "seed": null
+        },
+        {
+          "id": "e7",
+          "name": "池田・小林",
+          "club": "南ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e8",
+          "name": "橋本・林",
+          "club": "北高テニスクラブ",
+          "seed": null
+        },
+        {
+          "id": "e9",
+          "name": "阿部・石川",
+          "club": "港ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e10",
+          "name": "石川・近藤",
+          "club": "中央TC",
+          "seed": null
+        },
+        {
+          "id": "e11",
+          "name": "前田・福田",
+          "club": "西テニス教室",
+          "seed": null
+        }
+      ],
+      "bracket": {
+        "size": 16,
+        "slots": [
+          "e1",
+          null,
+          "e8",
+          "e3",
+          "e10",
+          null,
+          "e5",
+          null,
+          "e11",
+          "e7",
+          null,
+          "e6",
+          "e9",
+          "e4",
+          null,
+          "e2"
+        ]
+      }
+    },
+    {
+      "id": "d4",
+      "name": "女子低学年",
+      "entryRows": [
+        {
+          "name": "藤田・小川",
+          "club": "西テニス教室",
+          "seed": true
+        },
+        {
+          "name": "後藤・中山",
+          "club": "東スポーツ",
+          "seed": true
+        },
+        {
+          "name": "岡田・横山",
+          "club": "南ジュニア",
+          "seed": false
+        },
+        {
+          "name": "長谷川・山田",
+          "club": "北高テニスクラブ",
+          "seed": false
+        },
+        {
+          "name": "村上・中村",
+          "club": "港ジュニア",
+          "seed": false
+        },
+        {
+          "name": "近藤・木村",
+          "club": "中央TC",
+          "seed": false
+        },
+        {
+          "name": "石井・阿部",
+          "club": "西テニス教室",
+          "seed": false
+        },
+        {
+          "name": "坂本・村上",
+          "club": "東スポーツ",
+          "seed": false
+        },
+        {
+          "name": "遠藤・西村",
+          "club": "南ジュニア",
+          "seed": false
+        },
+        {
+          "name": "青木・原田",
+          "club": "北高テニスクラブ",
+          "seed": false
+        },
+        {
+          "name": "藤井・和田",
+          "club": "港ジュニア",
+          "seed": false
+        },
+        {
+          "name": "西村・工藤",
+          "club": "中央TC",
+          "seed": false
+        },
+        {
+          "name": "福田・谷口",
+          "club": "西テニス教室",
+          "seed": false
+        },
+        {
+          "name": "太田・渡辺",
+          "club": "東スポーツ",
+          "seed": false
+        }
+      ],
+      "entries": [
+        {
+          "id": "e1",
+          "name": "藤田・小川",
+          "club": "西テニス教室",
+          "seed": 1
+        },
+        {
+          "id": "e2",
+          "name": "後藤・中山",
+          "club": "東スポーツ",
+          "seed": 2
+        },
+        {
+          "id": "e3",
+          "name": "岡田・横山",
+          "club": "南ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e4",
+          "name": "長谷川・山田",
+          "club": "北高テニスクラブ",
+          "seed": null
+        },
+        {
+          "id": "e5",
+          "name": "村上・中村",
+          "club": "港ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e6",
+          "name": "近藤・木村",
+          "club": "中央TC",
+          "seed": null
+        },
+        {
+          "id": "e7",
+          "name": "石井・阿部",
+          "club": "西テニス教室",
+          "seed": null
+        },
+        {
+          "id": "e8",
+          "name": "坂本・村上",
+          "club": "東スポーツ",
+          "seed": null
+        },
+        {
+          "id": "e9",
+          "name": "遠藤・西村",
+          "club": "南ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e10",
+          "name": "青木・原田",
+          "club": "北高テニスクラブ",
+          "seed": null
+        },
+        {
+          "id": "e11",
+          "name": "藤井・和田",
+          "club": "港ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e12",
+          "name": "西村・工藤",
+          "club": "中央TC",
+          "seed": null
+        },
+        {
+          "id": "e13",
+          "name": "福田・谷口",
+          "club": "西テニス教室",
+          "seed": null
+        },
+        {
+          "id": "e14",
+          "name": "太田・渡辺",
+          "club": "東スポーツ",
+          "seed": null
+        }
+      ],
+      "bracket": {
+        "size": 16,
+        "slots": [
+          "e1",
+          null,
+          "e14",
+          "e5",
+          "e8",
+          "e12",
+          "e10",
+          "e9",
+          "e13",
+          "e4",
+          "e6",
+          "e3",
+          "e11",
+          "e7",
+          null,
+          "e2"
+        ]
+      }
+    },
+    {
+      "id": "d5",
+      "name": "女子中学年",
+      "entryRows": [
+        {
+          "name": "三浦・井上",
+          "club": "東スポーツ",
+          "seed": true
+        },
+        {
+          "name": "岡本・橋本",
+          "club": "南ジュニア",
+          "seed": true
+        },
+        {
+          "name": "松田・長谷川",
+          "club": "北高テニスクラブ",
+          "seed": false
+        },
+        {
+          "name": "中島・藤井",
+          "club": "港ジュニア",
+          "seed": false
+        },
+        {
+          "name": "原田・中島",
+          "club": "中央TC",
+          "seed": false
+        },
+        {
+          "name": "小川・金子",
+          "club": "西テニス教室",
+          "seed": false
+        },
+        {
+          "name": "中野・酒井",
+          "club": "東スポーツ",
+          "seed": false
+        },
+        {
+          "name": "野口・安藤",
+          "club": "南ジュニア",
+          "seed": false
+        },
+        {
+          "name": "田村・伊藤",
+          "club": "北高テニスクラブ",
+          "seed": false
+        },
+        {
+          "name": "竹内・松本",
+          "club": "港ジュニア",
+          "seed": false
+        },
+        {
+          "name": "金子・池田",
+          "club": "中央TC",
+          "seed": false
+        },
+        {
+          "name": "和田・岡田",
+          "club": "西テニス教室",
+          "seed": false
+        },
+        {
+          "name": "中山・青木",
+          "club": "東スポーツ",
+          "seed": false
+        },
+        {
+          "name": "石田・松田",
+          "club": "南ジュニア",
+          "seed": false
+        },
+        {
+          "name": "上田・竹内",
+          "club": "北高テニスクラブ",
+          "seed": false
+        },
+        {
+          "name": "森・柴田",
+          "club": "港ジュニア",
+          "seed": false
+        },
+        {
+          "name": "柴田・高木",
+          "club": "中央TC",
+          "seed": false
+        },
+        {
+          "name": "酒井・高橋",
+          "club": "西テニス教室",
+          "seed": false
+        },
+        {
+          "name": "工藤・山本",
+          "club": "東スポーツ",
+          "seed": false
+        },
+        {
+          "name": "横山・山口",
+          "club": "南ジュニア",
+          "seed": false
+        }
+      ],
+      "entries": [
+        {
+          "id": "e1",
+          "name": "三浦・井上",
+          "club": "東スポーツ",
+          "seed": 1
+        },
+        {
+          "id": "e2",
+          "name": "岡本・橋本",
+          "club": "南ジュニア",
+          "seed": 2
+        },
+        {
+          "id": "e3",
+          "name": "松田・長谷川",
+          "club": "北高テニスクラブ",
+          "seed": null
+        },
+        {
+          "id": "e4",
+          "name": "中島・藤井",
+          "club": "港ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e5",
+          "name": "原田・中島",
+          "club": "中央TC",
+          "seed": null
+        },
+        {
+          "id": "e6",
+          "name": "小川・金子",
+          "club": "西テニス教室",
+          "seed": null
+        },
+        {
+          "id": "e7",
+          "name": "中野・酒井",
+          "club": "東スポーツ",
+          "seed": null
+        },
+        {
+          "id": "e8",
+          "name": "野口・安藤",
+          "club": "南ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e9",
+          "name": "田村・伊藤",
+          "club": "北高テニスクラブ",
+          "seed": null
+        },
+        {
+          "id": "e10",
+          "name": "竹内・松本",
+          "club": "港ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e11",
+          "name": "金子・池田",
+          "club": "中央TC",
+          "seed": null
+        },
+        {
+          "id": "e12",
+          "name": "和田・岡田",
+          "club": "西テニス教室",
+          "seed": null
+        },
+        {
+          "id": "e13",
+          "name": "中山・青木",
+          "club": "東スポーツ",
+          "seed": null
+        },
+        {
+          "id": "e14",
+          "name": "石田・松田",
+          "club": "南ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e15",
+          "name": "上田・竹内",
+          "club": "北高テニスクラブ",
+          "seed": null
+        },
+        {
+          "id": "e16",
+          "name": "森・柴田",
+          "club": "港ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e17",
+          "name": "柴田・高木",
+          "club": "中央TC",
+          "seed": null
+        },
+        {
+          "id": "e18",
+          "name": "酒井・高橋",
+          "club": "西テニス教室",
+          "seed": null
+        },
+        {
+          "id": "e19",
+          "name": "工藤・山本",
+          "club": "東スポーツ",
+          "seed": null
+        },
+        {
+          "id": "e20",
+          "name": "横山・山口",
+          "club": "南ジュニア",
+          "seed": null
+        }
+      ],
+      "bracket": {
+        "size": 32,
+        "slots": [
+          "e1",
+          null,
+          "e18",
+          "e9",
+          "e8",
+          null,
+          "e4",
+          null,
+          "e12",
+          null,
+          "e11",
+          "e16",
+          "e13",
+          null,
+          "e14",
+          null,
+          null,
+          "e20",
+          null,
+          "e10",
+          "e17",
+          "e19",
+          null,
+          "e15",
+          null,
+          "e6",
+          null,
+          "e7",
+          "e5",
+          "e3",
+          null,
+          "e2"
+        ]
+      }
+    },
+    {
+      "id": "d6",
+      "name": "女子高学年",
+      "entryRows": [
+        {
+          "name": "宮崎・後藤",
+          "club": "南ジュニア",
+          "seed": true
+        },
+        {
+          "name": "宮本・遠藤",
+          "club": "北高テニスクラブ",
+          "seed": true
+        },
+        {
+          "name": "内田・岡本",
+          "club": "港ジュニア",
+          "seed": false
+        },
+        {
+          "name": "高木・田村",
+          "club": "中央TC",
+          "seed": false
+        },
+        {
+          "name": "安藤・森",
+          "club": "西テニス教室",
+          "seed": false
+        },
+        {
+          "name": "谷口・内田",
+          "club": "東スポーツ",
+          "seed": false
+        },
+        {
+          "name": "山田・田中",
+          "club": "南ジュニア",
+          "seed": false
+        },
+        {
+          "name": "佐藤・吉田",
+          "club": "北高テニスクラブ",
+          "seed": false
+        },
+        {
+          "name": "鈴木・清水",
+          "club": "港ジュニア",
+          "seed": false
+        },
+        {
+          "name": "田中・藤田",
+          "club": "中央TC",
+          "seed": false
+        },
+        {
+          "name": "高橋・坂本",
+          "club": "西テニス教室",
+          "seed": false
+        },
+        {
+          "name": "伊藤・三浦",
+          "club": "東スポーツ",
+          "seed": false
+        },
+        {
+          "name": "渡辺・野口",
+          "club": "南ジュニア",
+          "seed": false
+        },
+        {
+          "name": "中村・上田",
+          "club": "北高テニスクラブ",
+          "seed": false
+        },
+        {
+          "name": "小林・宮本",
+          "club": "港ジュニア",
+          "seed": false
+        },
+        {
+          "name": "加藤・鈴木",
+          "club": "中央TC",
+          "seed": false
+        },
+        {
+          "name": "吉田・加藤",
+          "club": "西テニス教室",
+          "seed": false
+        },
+        {
+          "name": "山本・斎藤",
+          "club": "東スポーツ",
+          "seed": false
+        },
+        {
+          "name": "松本・前田",
+          "club": "南ジュニア",
+          "seed": false
+        },
+        {
+          "name": "井上・石井",
+          "club": "北高テニスクラブ",
+          "seed": false
+        },
+        {
+          "name": "木村・太田",
+          "club": "港ジュニア",
+          "seed": false
+        },
+        {
+          "name": "林・中野",
+          "club": "中央TC",
+          "seed": false
+        },
+        {
+          "name": "斎藤・石田",
+          "club": "西テニス教室",
+          "seed": false
+        },
+        {
+          "name": "清水・宮崎",
+          "club": "東スポーツ",
+          "seed": false
+        },
+        {
+          "name": "山口・佐藤",
+          "club": "南ジュニア",
+          "seed": false
+        },
+        {
+          "name": "池田・小林",
+          "club": "北高テニスクラブ",
+          "seed": false
+        },
+        {
+          "name": "橋本・林",
+          "club": "港ジュニア",
+          "seed": false
+        }
+      ],
+      "entries": [
+        {
+          "id": "e1",
+          "name": "宮崎・後藤",
+          "club": "南ジュニア",
+          "seed": 1
+        },
+        {
+          "id": "e2",
+          "name": "宮本・遠藤",
+          "club": "北高テニスクラブ",
+          "seed": 2
+        },
+        {
+          "id": "e3",
+          "name": "内田・岡本",
+          "club": "港ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e4",
+          "name": "高木・田村",
+          "club": "中央TC",
+          "seed": null
+        },
+        {
+          "id": "e5",
+          "name": "安藤・森",
+          "club": "西テニス教室",
+          "seed": null
+        },
+        {
+          "id": "e6",
+          "name": "谷口・内田",
+          "club": "東スポーツ",
+          "seed": null
+        },
+        {
+          "id": "e7",
+          "name": "山田・田中",
+          "club": "南ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e8",
+          "name": "佐藤・吉田",
+          "club": "北高テニスクラブ",
+          "seed": null
+        },
+        {
+          "id": "e9",
+          "name": "鈴木・清水",
+          "club": "港ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e10",
+          "name": "田中・藤田",
+          "club": "中央TC",
+          "seed": null
+        },
+        {
+          "id": "e11",
+          "name": "高橋・坂本",
+          "club": "西テニス教室",
+          "seed": null
+        },
+        {
+          "id": "e12",
+          "name": "伊藤・三浦",
+          "club": "東スポーツ",
+          "seed": null
+        },
+        {
+          "id": "e13",
+          "name": "渡辺・野口",
+          "club": "南ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e14",
+          "name": "中村・上田",
+          "club": "北高テニスクラブ",
+          "seed": null
+        },
+        {
+          "id": "e15",
+          "name": "小林・宮本",
+          "club": "港ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e16",
+          "name": "加藤・鈴木",
+          "club": "中央TC",
+          "seed": null
+        },
+        {
+          "id": "e17",
+          "name": "吉田・加藤",
+          "club": "西テニス教室",
+          "seed": null
+        },
+        {
+          "id": "e18",
+          "name": "山本・斎藤",
+          "club": "東スポーツ",
+          "seed": null
+        },
+        {
+          "id": "e19",
+          "name": "松本・前田",
+          "club": "南ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e20",
+          "name": "井上・石井",
+          "club": "北高テニスクラブ",
+          "seed": null
+        },
+        {
+          "id": "e21",
+          "name": "木村・太田",
+          "club": "港ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e22",
+          "name": "林・中野",
+          "club": "中央TC",
+          "seed": null
+        },
+        {
+          "id": "e23",
+          "name": "斎藤・石田",
+          "club": "西テニス教室",
+          "seed": null
+        },
+        {
+          "id": "e24",
+          "name": "清水・宮崎",
+          "club": "東スポーツ",
+          "seed": null
+        },
+        {
+          "id": "e25",
+          "name": "山口・佐藤",
+          "club": "南ジュニア",
+          "seed": null
+        },
+        {
+          "id": "e26",
+          "name": "池田・小林",
+          "club": "北高テニスクラブ",
+          "seed": null
+        },
+        {
+          "id": "e27",
+          "name": "橋本・林",
+          "club": "港ジュニア",
+          "seed": null
+        }
+      ],
+      "bracket": {
+        "size": 32,
+        "slots": [
+          "e1",
+          null,
+          "e10",
+          "e26",
+          "e12",
+          "e23",
+          "e20",
+          "e3",
+          "e8",
+          null,
+          "e18",
+          "e25",
+          "e21",
+          null,
+          "e17",
+          "e16",
+          "e14",
+          "e19",
+          "e6",
+          "e4",
+          "e9",
+          "e13",
+          null,
+          "e5",
+          "e22",
+          "e7",
+          "e11",
+          "e27",
+          "e15",
+          "e24",
+          null,
+          "e2"
+        ]
+      }
+    }
+  ]
+}

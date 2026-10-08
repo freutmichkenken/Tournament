@@ -42,7 +42,7 @@
   function load() {
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return defaultState();
+      if (!raw) return (window.TournamentDummy && normalize(window.TournamentDummy)) || defaultState();
       var s = normalize(JSON.parse(raw));
       return s || defaultState();
     } catch (e) {
